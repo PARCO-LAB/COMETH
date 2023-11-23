@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<skeleton format="BODY15" dim="3">
+    <keypoint name="Root">
+        <keypoint name="MidShoulder">
+                <keypoint name="LShoulder">
+                    <keypoint name="LElbow">
+                        <keypoint name="LWrist">
+                        </keypoint>
+                    </keypoint>
+                </keypoint>
+                <keypoint name="RShoulder">
+                    <keypoint name="RElbow">
+                        <keypoint name="RWrist">
+                        </keypoint>
+                    </keypoint>
+                </keypoint>
+        </keypoint>            
+        <keypoint name="MidHip">
+                <keypoint name="LHip">
+                    <keypoint name="LKnee">
+                        <keypoint name="LAnkle">
+                        </keypoint>
+                    </keypoint>
+                </keypoint>
+                <keypoint name="RHip">
+                    <keypoint name="RKnee">
+                        <keypoint name="RAnkle">
+                        </keypoint>
+                    </keypoint>
+                </keypoint>
+        </keypoint>         
+    </keypoint>
+</skeleton>

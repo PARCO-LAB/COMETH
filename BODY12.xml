@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<skeleton format="BODY12" dim="2">
+    <keypoints>
+        <keypoint name="LHip">
+            <keypoint name="LKnee" bone="LFemur" isfixed="False">
+                <keypoint name="LAnkle"  bone="LTibia" isfixed="False">
+                </keypoint>
+            </keypoint>
+            <keypoint name="LShoulder">
+                <keypoint name="LElbow"  bone="LUmerus" isfixed="False">
+                    <keypoint name="LWrist"  bone="LRadius" isfixed="False">
+                    </keypoint>
+                </keypoint>
+                <keypoint name="RShoulder">
+                    <keypoint name="RElbow" bone="RUmerus" isfixed="False">
+                        <keypoint name="RWrist" bone="RElbow" isfixed="False">
+                        </keypoint>
+                    </keypoint>
+                </keypoint>
+            </keypoint>       
+            <keypoint name="RHip">
+                <keypoint name="RKnee" bone="RFemur" isfixed="False">
+                    <keypoint name="RAnkle" bone="RTibia" isfixed="False">
+                    </keypoint>
+                </keypoint>
+            </keypoint>
+        </keypoint>
+    </keypoints>
+</skeleton>
