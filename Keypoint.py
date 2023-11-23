@@ -16,6 +16,6 @@ class Keypoint():
         
     def __str__(self):
         if self.pos:
-            return "(Keypoint {name}: {pos})".format(name=self.name,pos=round(self.pos,2))
+            return "({name}: {pos})".format(name=self.name,pos=round(self.pos,2))
         else:
-            return "(Keypoint {name})".format(name=self.name)
+            return "({name})".format(name=self.name)

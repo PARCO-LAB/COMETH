@@ -24,4 +24,4 @@ class Bone():
     
     # TODO
     def length(self):
-        return 1.0
+        return np.nan
