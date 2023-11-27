@@ -15,7 +15,7 @@ class Keypoint():
         self.pos = None
         
     def __str__(self):
-        if self.pos:
-            return "({name}: {pos})".format(name=self.name,pos=round(self.pos,2))
+        if self.pos is not None:
+            return "({name}: {pos})".format(name=self.name,pos=np.round(self.pos,2))
         else:
             return "({name})".format(name=self.name)

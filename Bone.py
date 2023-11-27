@@ -16,12 +16,15 @@ class Bone():
 
     def __str__(self):
         if self.name:
-            out =  "-[{name}: {len}]-".format(name=self.name,len=self.length())
+            out =  "-[{name}: {len}]-".format(name=self.name,len=self.length)
         else:
-            out =  "-[Bone: {len}]-".format(name=self.name,len=self.length())
+            out =  "-[Bone: {len}]-".format(name=self.name,len=self.length)
         return out
     
-    
-    # TODO
-    def length(self):
+    def _get_length(self):
         return np.nan
+    
+    length = property(
+        fget=_get_length
+    )
+    
