@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<skeleton format="BODY15" dim="2">
+<skeleton format="BODY15" dim="5">
     <keypoints>
         <keypoint name="Root">
             <keypoint name="MidShoulder" bone="USpine" isfixed="False">
@@ -32,4 +32,16 @@
             </keypoint>         
         </keypoint>
     </keypoints>
+    <constraints>
+        <constraint bone="LClavicle"    mean="0.129"    std="0.03"></constraint>
+        <constraint bone="RClavicle"    mean="0.129"    std="0.03"></constraint>
+        <constraint bone="RHumerus"     mean="0.186"    std="0.03"></constraint>
+        <constraint bone="LHumerus"     mean="0.186"    std="0.03"></constraint>
+        <constraint bone="RForearm"     mean="0.146"    std="0.03"></constraint>
+        <constraint bone="LForearm"     mean="0.146"    std="0.03"></constraint>
+        <constraint bone="LFemur"       mean="0.245"    std="0.03"></constraint>
+        <constraint bone="RFemur"       mean="0.245"    std="0.03"></constraint>
+        <constraint bone="RTibia"       mean="0.240"    std="0.03"></constraint>
+        <constraint bone="LTibia"       mean="0.240"    std="0.03"></constraint>
+    </constraints>
 </skeleton>

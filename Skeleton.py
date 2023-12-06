@@ -15,16 +15,28 @@ class Skeleton():
         for part in start:
             if part.tag == "keypoints":
                 self.chain = build(part[0])
-            else:
-                raise Exception("Error in XML formulation: keypoints tag not found")
         self.name = name
         self.keypoints_list = get_keypoints_list(self.chain)
+        self.bones_list = get_bones_list(self.chain)
         self.numpy_mapping = None
+        self.position = np.zeros(self.dimension)
         
     def __str__(self):
         outstr = "Skeleton (format: {s}, dim: {d})\n".format(s=self.format,d=self.dimension)   
         outstr += to_str(self.chain,0)
         return outstr
+
+    def relative_position(self):
+        if np.array_equal(self.position,np.zeros(self.dimension)):
+            self.position = self.chain.pos
+            subtract(self.chain,np.zeros(self.dimension))
+            self.chain.pos = np.zeros(self.dimension)
+
+    def absolute_position(self):
+        if not np.array_equal(self.position,np.zeros(self.dimension)):
+            add(self.chain,self.position)
+            self.position = np.zeros(self.dimension)
+
 
     # #kps x dim
     def load_from_numpy(self,matrix,labels):
@@ -33,13 +45,17 @@ class Skeleton():
             self.numpy_mapping = [indici_A.get(valore) for valore in [obj.name for obj in self.keypoints_list]]
         
         for i in range(len(self.keypoints_list)):
-            #print(labels[self.numpy_mapping[i]], self.keypoints_list[i].name)
             self.keypoints_list[i].pos = matrix[self.numpy_mapping[i],:]
     
     def to_numpy(self,labels = None):
         if labels:
-            indici_A = {valore: indice for indice, valore in enumerate(labels)}
-            self.numpy_mapping = [indici_A.get(valore) for valore in [obj.name for obj in self.keypoints_list]]
+            indici_A = {valore: indice for indice, valore in enumerate([obj.name for obj in self.keypoints_list])}
+            mapping = [indici_A.get(valore) for valore in labels]
+            matrix = np.full([len(labels),self.dimension], np.nan)
+            for i in range(len(labels)):
+                if mapping[i] is not None:
+                    matrix[i,:] = self.keypoints_list[mapping[i]].pos
+            return matrix
         elif not labels and not self.numpy_mapping:
             raise Exception("You must specify which keypoints do you want")
         else:
@@ -47,17 +63,102 @@ class Skeleton():
             for i in range(len(self.keypoints_list)):
                 matrix[self.numpy_mapping[i],:] = self.keypoints_list[i].pos
             return matrix
+
+
+class ConstrainedSkeleton(Skeleton):
+    def __init__(self, config, name=None):
+        super().__init__(config, name)
+        self.BODY12_mapping = []
+        # Save constraints
+        start = ET.parse(config).getroot()
+        self.bones_dict = {obj.name: obj for obj in self.bones_list}
+        self.constraints = {}
+        for part in start:
+            if part.tag == "constraints":
+                for e in part:
+                    self.constraints[e.attrib["bone"]] = (float(e.attrib["mean"]),float(e.attrib["std"]))
+                    # self.bones_dict[e.attrib["bone"]].mean = float(e.attrib["mean"])
+                    # self.bones_dict[e.attrib["bone"]].std = float(e.attrib["std"])
+                    
+                        
+    # Pass  the position of joints from a skeleton12 to a skeleton15
+    def load_from_BODY12(self,s12):
+        if not self.BODY12_mapping:
+            l_from = [obj.name for obj in s12.keypoints_list]
+            l_to = [obj.name for obj in self.keypoints_list]
+            indici_A = {valore: indice for indice, valore in enumerate(l_from)}
+            self.BODY12_mapping = [indici_A.get(valore) for valore in l_to]
+        # Copy the elements that are the same
+        for i in range(len(self.keypoints_list)):
+            if self.BODY12_mapping[i] is not None:
+                self.keypoints_list[i].pos = s12.keypoints_list[self.BODY12_mapping[i]].pos
+        midhip = (self.keypoints_list[9].pos+self.keypoints_list[12].pos)/2
+        midshoulder = (self.keypoints_list[2].pos+self.keypoints_list[5].pos)/2
+        self.keypoints_list[8].pos = midhip
+        self.keypoints_list[1].pos = midshoulder
+        self.keypoints_list[0].pos = (midshoulder+midhip)/2
+
+    def constrain(self):
+        height = self.estimate_height()
+        constraints = { c[0] : (c[1][0]*height-c[1][1]*height, c[1][0]*height+c[1][1]*height) for c in self.constraints.items()}
+        if height != np.nan:
+            adjust(self.chain,constraints)
+        
+        
+    def estimate_height(self):
+        h = np.array([
+            self.bones_dict["DSpine"].length+self.bones_dict["USpine"].length+self.bones_dict["LFemur"].length+self.bones_dict["LTibia"].length,
+            self.bones_dict["DSpine"].length+self.bones_dict["USpine"].length+self.bones_dict["LFemur"].length+self.bones_dict["RTibia"].length,
+            self.bones_dict["DSpine"].length+self.bones_dict["USpine"].length+self.bones_dict["RFemur"].length+self.bones_dict["LTibia"].length,
+            self.bones_dict["DSpine"].length+self.bones_dict["USpine"].length+self.bones_dict["RFemur"].length+self.bones_dict["RTibia"].length
+        ])/0.818#0.779
+        outside_range_mask = np.logical_or(h < 1440, h > 2000)
+        h[outside_range_mask] = np.nan
+        return np.nanmean(h) if not np.all(np.isnan(h)) else np.nan
+
+def subtract(keypoint,parent):
+    for bone in keypoint.children:
+        subtract(bone.dest,keypoint.pos)
+        bone.is_absolute = False
+    keypoint.pos -= parent
     
-    # from pandas Series
-    def load_from_pandas(self,df):
-        print("Function not yet implemented sorry :(")
-        
-        
+def add(keypoint,parent):
+    keypoint.pos += parent
+    for bone in keypoint.children:
+        add(bone.dest,keypoint.pos)
+        bone.is_absolute = True
+    
+    
+
+def adjust(node,constraints):
+    # s[self.num_dimension*b_i:self.num_dimension*b_i+self.num_dimension] = b.length * (B-A) / np.linalg.norm(B-A) + A
+    if type(node) == Bone:
+        #print(node.src.pos, node.dest.pos, node.length)
+        if node.name in constraints.keys() and (node.length < constraints[node.name][0] or node.length > constraints[node.name][1]):
+            length_adj = constraints[node.name][0] if node.length < constraints[node.name][0] else constraints[node.name][1]
+            A = node.src.pos[:3]
+            B = node.dest.pos[:3]
+            node.dest.pos[:3] = length_adj * (B-A) / np.linalg.norm(B-A) + A
+        adjust(node.dest,constraints)
+    else:
+        for child in node.children:
+            adjust(child,constraints)
+
 def get_keypoints_list(keypoint):
     kps = [keypoint]
     for bone in keypoint.children:
         kps += get_keypoints_list(bone.dest)
     return kps
+
+def get_bones_list(node):
+    bone = []
+    if type(node) == Bone:
+        bone.append(node)
+        bone += get_bones_list(node.dest)
+    else:
+        for child in node.children:
+            bone += get_bones_list(child)
+    return bone
         
 # Build the skeleton recursively
 def build(keypoint):
@@ -65,9 +166,11 @@ def build(keypoint):
     # Build the first keypoint
     name = keypoint.attrib["name"]
     A = Keypoint(name = name)
+    
     # Build the children
     next = []
     for child in keypoint:
+        
         # Build the child recursevelt
         B = build(child) 
         
