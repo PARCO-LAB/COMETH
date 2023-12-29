@@ -1,7 +1,7 @@
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
-from Skeleton import Skeleton,ConstrainedSkeleton
+from Skeleton.Skeleton import Skeleton,ConstrainedSkeleton
 
 gpus = tf.config.experimental.list_physical_devices('GPU')
 for gpu in gpus:

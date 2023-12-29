@@ -1,8 +1,8 @@
 import numpy as np
 import xml.etree.ElementTree as ET
-from Bone import Bone
-from Keypoint import Keypoint
-from Joint import Joint
+from Skeleton.Bone import Bone
+from Skeleton.Keypoint import Keypoint
+from Skeleton.Joint import Joint
 
 class Skeleton():
     

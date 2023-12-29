@@ -1,4 +1,4 @@
-from Skeleton import Skeleton,ConstrainedSkeleton
+from Skeleton.Skeleton import Skeleton,ConstrainedSkeleton
 import numpy as np
 import pandas as pd
 from Completor import Completor
