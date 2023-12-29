@@ -47,11 +47,13 @@ class Skeleton():
         for i in range(len(self.keypoints_list)):
             self.keypoints_list[i].pos = matrix[self.numpy_mapping[i],:]
     
-    def to_numpy(self,labels = None):
+    def to_numpy(self,labels = None, dim = None):
+        if dim is None:
+            dim = self.dimension
         if labels:
             indici_A = {valore: indice for indice, valore in enumerate([obj.name for obj in self.keypoints_list])}
             mapping = [indici_A.get(valore) for valore in labels]
-            matrix = np.full([len(labels),self.dimension], np.nan)
+            matrix = np.full([len(labels),dim], np.nan)
             for i in range(len(labels)):
                 if mapping[i] is not None:
                     matrix[i,:] = self.keypoints_list[mapping[i]].pos
@@ -59,7 +61,7 @@ class Skeleton():
         elif not labels and not self.numpy_mapping:
             raise Exception("You must specify which keypoints do you want")
         else:
-            matrix = np.full([len(self.keypoints_list),self.dimension], np.nan)
+            matrix = np.full([len(self.keypoints_list),dim], np.nan)
             for i in range(len(self.keypoints_list)):
                 matrix[self.numpy_mapping[i],:] = self.keypoints_list[i].pos
             return matrix
@@ -72,14 +74,18 @@ class ConstrainedSkeleton(Skeleton):
         # Save constraints
         start = ET.parse(config).getroot()
         self.bones_dict = {obj.name: obj for obj in self.bones_list}
-        self.constraints = {}
+        self.proportions = {}
+        self.symmetry = {}
         for part in start:
             if part.tag == "constraints":
                 for e in part:
-                    self.constraints[e.attrib["bone"]] = (float(e.attrib["mean"]),float(e.attrib["std"]))
-                    # self.bones_dict[e.attrib["bone"]].mean = float(e.attrib["mean"])
-                    # self.bones_dict[e.attrib["bone"]].std = float(e.attrib["std"])
-                    
+                    if e.tag == "proportions":
+                        for p in e:
+                            self.proportions[p.attrib["bone"]] = (float(p.attrib["mean"]),float(p.attrib["std"]))
+                    elif e.tag == "symmetry":
+                        for p in e:
+                            self.symmetry[p.attrib["bone1"]] = p.attrib["bone2"]
+                            self.symmetry[p.attrib["bone2"]] = p.attrib["bone1"]
                         
     # Pass  the position of joints from a skeleton12 to a skeleton15
     def load_from_BODY12(self,s12):
@@ -100,20 +106,27 @@ class ConstrainedSkeleton(Skeleton):
 
     def constrain(self):
         height = self.estimate_height()
-        constraints = { c[0] : (c[1][0]*height-c[1][1]*height, c[1][0]*height+c[1][1]*height) for c in self.constraints.items()}
+        constraints = { c[0] : [c[1][0]*height-c[1][1]*height, c[1][0]*height+c[1][1]*height, None] for c in self.proportions.items()}
+        for bone in constraints:
+            if bone in self.symmetry and self.bones_dict[self.symmetry[bone]].length > constraints[bone][0] and self.bones_dict[self.symmetry[bone]].length < constraints[bone][0]:
+                constraints[bone][2] = self.bones_dict[self.symmetry[bone]].length
         if height != np.nan:
-            adjust(self.chain,constraints)
+            adjust(self.chain,constraints,self.symmetry)
+        
+        # print(vector_angle(self.bones_dict["LForearm"].src.pos[:3],self.bones_dict["LForearm"].dest.pos[:3]))
+        # print(vector_angle(self.bones_dict["USpine"].src.pos[:3],self.bones_dict["USpine"].dest.pos[:3]))
+    
+        # exit()
         
         
-    def estimate_height(self):
-        h = np.array([
-            self.bones_dict["DSpine"].length+self.bones_dict["USpine"].length+self.bones_dict["LFemur"].length+self.bones_dict["LTibia"].length,
-            self.bones_dict["DSpine"].length+self.bones_dict["USpine"].length+self.bones_dict["LFemur"].length+self.bones_dict["RTibia"].length,
-            self.bones_dict["DSpine"].length+self.bones_dict["USpine"].length+self.bones_dict["RFemur"].length+self.bones_dict["LTibia"].length,
-            self.bones_dict["DSpine"].length+self.bones_dict["USpine"].length+self.bones_dict["RFemur"].length+self.bones_dict["RTibia"].length
-        ])/0.818#0.779
-        outside_range_mask = np.logical_or(h < 1440, h > 2000)
-        h[outside_range_mask] = np.nan
+    def estimate_height(self, constrained=True):
+        h = []
+        for p in self.proportions:
+            h.append(self.bones_dict[p].length/self.proportions[p][0])
+        h = np.array(h)
+        if constrained:
+            outside_range_mask = np.logical_or(h < 1440, h > 2000)
+            h[outside_range_mask] = np.nan
         return np.nanmean(h) if not np.all(np.isnan(h)) else np.nan
 
 def subtract(keypoint,parent):
@@ -127,22 +140,30 @@ def add(keypoint,parent):
     for bone in keypoint.children:
         add(bone.dest,keypoint.pos)
         bone.is_absolute = True
-    
-    
 
-def adjust(node,constraints):
+
+def adjust(node,constraints,symmetry):
     # s[self.num_dimension*b_i:self.num_dimension*b_i+self.num_dimension] = b.length * (B-A) / np.linalg.norm(B-A) + A
     if type(node) == Bone:
         #print(node.src.pos, node.dest.pos, node.length)
         if node.name in constraints.keys() and (node.length < constraints[node.name][0] or node.length > constraints[node.name][1]):
-            length_adj = constraints[node.name][0] if node.length < constraints[node.name][0] else constraints[node.name][1]
+            # print(node.name,"to be adjusted",node.length,constraints[node.name])
+            if constraints[node.name][2] is not None:
+                # print(node.name,"from",node.length,"to",constraints[node.name])
+                length_adj = constraints[node.name][2]
+            else:
+                length_adj = constraints[node.name][0] if node.length < constraints[node.name][0] else constraints[node.name][1]
             A = node.src.pos[:3]
             B = node.dest.pos[:3]
-            node.dest.pos[:3] = length_adj * (B-A) / np.linalg.norm(B-A) + A
-        adjust(node.dest,constraints)
+            node.dest.pos[:3] = length_adj * (B-A) / np.linalg.norm(B-A)
+            
+            if node.name in symmetry:
+                constraints[symmetry[node.name]][2] = length_adj
+            # print("\t",node.name, "adjusted to", node.length)
+        adjust(node.dest,constraints,symmetry)
     else:
         for child in node.children:
-            adjust(child,constraints)
+            adjust(child,constraints,symmetry)
 
 def get_keypoints_list(keypoint):
     kps = [keypoint]
