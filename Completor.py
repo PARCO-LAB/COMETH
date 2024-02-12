@@ -87,7 +87,7 @@ class Completor():
 
     def bio_norm(self,skeleton):
         s12 = Skeleton('BODY12.xml')
-        s15 = ConstrainedSkeleton('BODY15_constrained.xml')
+        s15 = ConstrainedSkeleton('BODY15_constrained_3D.xml')
         labels = ['LShoulder','RShoulder','LElbow','RElbow','LWrist','RWrist','LHip','RHip','LKnee','RKnee','LAnkle','RAnkle']
         x = skeleton.reshape(-1,3)
         s12.load_from_numpy(x,labels)
@@ -105,7 +105,7 @@ class Completor():
 
     def bio_norm_onehot(self,skeleton):
         s12 = Skeleton('BODY12.xml')
-        s15 = ConstrainedSkeleton('BODY15_constrained.xml')
+        s15 = ConstrainedSkeleton('BODY15_constrained_3D.xml')
         labels = ['LShoulder','RShoulder','LElbow','RElbow','LWrist','RWrist','LHip','RHip','LKnee','RKnee','LAnkle','RAnkle']
         x = skeleton.reshape(-1,3)
         s12.load_from_numpy(x,labels)

@@ -218,3 +218,34 @@ def to_str(keypoint,level):
         out += str(bone) + to_str(bone.dest,level+1)
     
     return out
+
+
+class KinematicSkeleton(ConstrainedSkeleton):
+    def __init__(self, config, name=None):
+        super().__init__(config, name)
+        self.keypoints_dict = {obj.name: obj for obj in self.keypoints_list}
+    
+    def IK(self):
+        # From the root
+        A = self.bones_dict["USpine"].length
+        P = self.keypoints_dict["MidShoulder"].pos[:3]-self.keypoints_dict["Root"].pos[:3]
+        
+        c2_p = np.sqrt(P[0]**2 + P[1]**2) / A
+        c2_m = -c2_p
+        s2 = P[2] / A
+        
+        c1_p = P[0]/A*c2_p
+        c1_m = P[0]/A*c2_m
+        s1_p = P[1]/A*c2_p
+        s1_m = P[1]/A*c2_m
+        
+        j1 = np.array([np.arctan2(s1_p,c1_p),np.arctan2(s1_p,c1_m),np.arctan2(s1_m,c1_p),np.arctan2(s1_m,c1_m)])
+        
+        print(j1*180 / np.pi)
+        
+        
+def RT(a,alpha,d,theta):
+    return np.array([   [np.cos(theta),   -np.sin(theta)*np.cos(alpha),    np.sin(theta)*np.sin(alpha) ,    a*np.cos(theta)],
+                        [np.sin(theta),   np.cos(theta)*np.cos(alpha) ,    -np.cos(theta)*np.sin(alpha),    a*np.sin(theta)],
+                        [0            ,   np.sin(alpha)               ,    np.cos(alpha)               ,    d],
+                        [0            ,   0                           ,    0                           ,    1]])

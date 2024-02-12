@@ -1,4 +1,4 @@
-from Skeleton.Skeleton import Skeleton,ConstrainedSkeleton
+from Skeleton.Skeleton import Skeleton, ConstrainedSkeleton
 import numpy as np
 import pandas as pd
 from Completor import Completor
@@ -70,7 +70,6 @@ for t in range(df.shape[0]):
 
 df_out = pd.DataFrame(data=np.array(table),columns = columns_out)
 #df_out["body_id"] = 10
-
 
 
 # tbm = [df_in,df_out]
