@@ -1,6 +1,6 @@
 # user defined
 tmp/
-
+others/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
