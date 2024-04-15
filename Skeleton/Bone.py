@@ -16,6 +16,7 @@ class Bone():
         self.name = name
         self.is_fixed = is_fixed
         self.is_absolute = True
+        self.history = []
 
     def __str__(self):
         if self.name:

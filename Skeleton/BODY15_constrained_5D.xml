@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<skeleton format="BODY15" dim="5">
+    <keypoints>
+        <keypoint name="Root">
+            <keypoint name="MidShoulder" bone="USpine" isfixed="False">
+                    <keypoint name="LShoulder" bone="LClavicle" isfixed="True">
+                        <keypoint name="LElbow"  bone="LHumerus" isfixed="True">
+                            <keypoint name="LWrist"  bone="LForearm" isfixed="True">
+                            </keypoint>
+                        </keypoint>
+                    </keypoint>
+                    <keypoint name="RShoulder" bone="RClavicle" isfixed="True">
+                        <keypoint name="RElbow" bone="RHumerus" isfixed="True">
+                            <keypoint name="RWrist" bone="RForearm" isfixed="True">
+                            </keypoint>
+                        </keypoint>
+                    </keypoint>
+            </keypoint>            
+            <keypoint name="MidHip" bone="DSpine" isfixed="False">
+                    <keypoint name="LHip" bone="LPelvis" isfixed="True">
+                        <keypoint name="LKnee" bone="LFemur" isfixed="True">
+                            <keypoint name="LAnkle" bone="LTibia" isfixed="True">
+                            </keypoint>
+                        </keypoint>
+                    </keypoint>
+                    <keypoint name="RHip" bone="RPelvis" isfixed="True">
+                        <keypoint name="RKnee" bone="RFemur" isfixed="True">
+                            <keypoint name="RAnkle" bone="RTibia" isfixed="True">
+                            </keypoint>
+                        </keypoint>
+                    </keypoint>
+            </keypoint>         
+        </keypoint>
+    </keypoints>
+    <constraints>
+        <proportions>
+            <constraint bone="LClavicle"    mean="0.129"    std="0.01"></constraint>
+            <constraint bone="RClavicle"    mean="0.129"    std="0.01"></constraint>
+            <constraint bone="RHumerus"     mean="0.186"    std="0.01"></constraint>
+            <constraint bone="LHumerus"     mean="0.186"    std="0.01"></constraint>
+            <constraint bone="RForearm"     mean="0.146"    std="0.01"></constraint>
+            <constraint bone="LForearm"     mean="0.146"    std="0.01"></constraint>
+            <constraint bone="LFemur"       mean="0.245"    std="0.01"></constraint>
+            <constraint bone="RFemur"       mean="0.245"    std="0.01"></constraint>
+            <constraint bone="RTibia"       mean="0.240"    std="0.01"></constraint>
+            <constraint bone="LTibia"       mean="0.240"    std="0.01"></constraint>
+            <constraint bone="LPelvis"      mean="0.095"    std="0.01"></constraint>
+            <constraint bone="RPelvis"      mean="0.095"    std="0.01"></constraint>
+            <constraint bone="USpine"       mean="0.140"    std="0.01"></constraint>
+            <constraint bone="DSpine"       mean="0.140"    std="0.01"></constraint>
+        </proportions>
+        <symmetry>
+            <constraint bone1="LClavicle"   bone2="RClavicle"   ></constraint>
+            <constraint bone1="LHumerus"    bone2="RHumerus"    ></constraint>
+            <constraint bone1="LForearm"    bone2="RForearm"    ></constraint>
+            <constraint bone1="LFemur"      bone2="RFemur"      ></constraint>
+            <constraint bone1="LTibia"      bone2="RTibia"      ></constraint>
+            <constraint bone1="LPelvis"     bone2="RPelvis"     ></constraint>
+        </symmetry>
+    </constraints>
+</skeleton>

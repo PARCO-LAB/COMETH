@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<skeleton format="BODY15" dim="2">
+    <keypoints>
+        <keypoint name="Root">
+            <keypoint name="MidShoulder" bone="USpine" isfixed="False">
+                    <keypoint name="LShoulder" bone="LClavicle" isfixed="True">
+                        <keypoint name="LElbow"  bone="LHumerus" isfixed="True">
+                            <keypoint name="LWrist"  bone="LForearm" isfixed="True">
+                            </keypoint>
+                        </keypoint>
+                    </keypoint>
+                    <keypoint name="RShoulder" bone="RClavicle" isfixed="True">
+                        <keypoint name="RElbow" bone="RHumerus" isfixed="True">
+                            <keypoint name="RWrist" bone="RForearm" isfixed="True">
+                            </keypoint>
+                        </keypoint>
+                    </keypoint>
+            </keypoint>            
+            <keypoint name="MidHip" bone="DSpine" isfixed="False">
+                    <keypoint name="LHip" bone="LPelvis" isfixed="True">
+                        <keypoint name="LKnee" bone="LFemur" isfixed="True">
+                            <keypoint name="LAnkle" bone="LTibia" isfixed="True">
+                            </keypoint>
+                        </keypoint>
+                    </keypoint>
+                    <keypoint name="RHip" bone="RPelvis" isfixed="True">
+                        <keypoint name="RKnee" bone="RFemur" isfixed="True">
+                            <keypoint name="RAnkle" bone="RTibia" isfixed="True">
+                            </keypoint>
+                        </keypoint>
+                    </keypoint>
+            </keypoint>         
+        </keypoint>
+    </keypoints>
+</skeleton>

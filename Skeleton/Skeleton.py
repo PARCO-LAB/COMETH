@@ -4,6 +4,7 @@ from Skeleton.Bone import Bone
 from Skeleton.Keypoint import Keypoint
 from Skeleton.Joint import Joint
 
+
 class Skeleton():
     
     def __init__(self,config, name = None):
@@ -76,6 +77,8 @@ class ConstrainedSkeleton(Skeleton):
         self.bones_dict = {obj.name: obj for obj in self.bones_list}
         self.proportions = {}
         self.symmetry = {}
+        self.height_history = []
+        
         for part in start:
             if part.tag == "constraints":
                 for e in part:
@@ -103,6 +106,11 @@ class ConstrainedSkeleton(Skeleton):
         self.keypoints_list[8].pos = midhip
         self.keypoints_list[1].pos = midshoulder
         self.keypoints_list[0].pos = (midshoulder+midhip)/2
+                
+        # Update bone length history
+        for b in self.bones_list:
+            b.history.append(b.length)
+        self.height_history.append(self.estimate_height())
 
     def constrain(self):
         height = self.estimate_height()
@@ -111,13 +119,7 @@ class ConstrainedSkeleton(Skeleton):
             if bone in self.symmetry and self.bones_dict[self.symmetry[bone]].length > constraints[bone][0] and self.bones_dict[self.symmetry[bone]].length < constraints[bone][0]:
                 constraints[bone][2] = self.bones_dict[self.symmetry[bone]].length
         if height != np.nan:
-            adjust(self.chain,constraints,self.symmetry)
-        
-        # print(vector_angle(self.bones_dict["LForearm"].src.pos[:3],self.bones_dict["LForearm"].dest.pos[:3]))
-        # print(vector_angle(self.bones_dict["USpine"].src.pos[:3],self.bones_dict["USpine"].dest.pos[:3]))
-    
-        # exit()
-        
+            adjust(self.chain,constraints,self.symmetry)       
         
     def estimate_height(self, constrained=True):
         h = []
@@ -125,7 +127,7 @@ class ConstrainedSkeleton(Skeleton):
             h.append(self.bones_dict[p].length/self.proportions[p][0])
         h = np.array(h)
         if constrained:
-            outside_range_mask = np.logical_or(h < 1440, h > 2000)
+            outside_range_mask = np.logical_or(h < 1.44, h > 2.00)
             h[outside_range_mask] = np.nan
         return np.nanmean(h) if not np.all(np.isnan(h)) else np.nan
 
@@ -143,13 +145,9 @@ def add(keypoint,parent):
 
 
 def adjust(node,constraints,symmetry):
-    # s[self.num_dimension*b_i:self.num_dimension*b_i+self.num_dimension] = b.length * (B-A) / np.linalg.norm(B-A) + A
     if type(node) == Bone:
-        #print(node.src.pos, node.dest.pos, node.length)
         if node.name in constraints.keys() and (node.length < constraints[node.name][0] or node.length > constraints[node.name][1]):
-            # print(node.name,"to be adjusted",node.length,constraints[node.name])
             if constraints[node.name][2] is not None:
-                # print(node.name,"from",node.length,"to",constraints[node.name])
                 length_adj = constraints[node.name][2]
             else:
                 length_adj = constraints[node.name][0] if node.length < constraints[node.name][0] else constraints[node.name][1]
@@ -159,7 +157,6 @@ def adjust(node,constraints,symmetry):
             
             if node.name in symmetry:
                 constraints[symmetry[node.name]][2] = length_adj
-            # print("\t",node.name, "adjusted to", node.length)
         adjust(node.dest,constraints,symmetry)
     else:
         for child in node.children:
@@ -218,34 +215,3 @@ def to_str(keypoint,level):
         out += str(bone) + to_str(bone.dest,level+1)
     
     return out
-
-
-class KinematicSkeleton(ConstrainedSkeleton):
-    def __init__(self, config, name=None):
-        super().__init__(config, name)
-        self.keypoints_dict = {obj.name: obj for obj in self.keypoints_list}
-    
-    def IK(self):
-        # From the root
-        A = self.bones_dict["USpine"].length
-        P = self.keypoints_dict["MidShoulder"].pos[:3]-self.keypoints_dict["Root"].pos[:3]
-        
-        c2_p = np.sqrt(P[0]**2 + P[1]**2) / A
-        c2_m = -c2_p
-        s2 = P[2] / A
-        
-        c1_p = P[0]/A*c2_p
-        c1_m = P[0]/A*c2_m
-        s1_p = P[1]/A*c2_p
-        s1_m = P[1]/A*c2_m
-        
-        j1 = np.array([np.arctan2(s1_p,c1_p),np.arctan2(s1_p,c1_m),np.arctan2(s1_m,c1_p),np.arctan2(s1_m,c1_m)])
-        
-        print(j1*180 / np.pi)
-        
-        
-def RT(a,alpha,d,theta):
-    return np.array([   [np.cos(theta),   -np.sin(theta)*np.cos(alpha),    np.sin(theta)*np.sin(alpha) ,    a*np.cos(theta)],
-                        [np.sin(theta),   np.cos(theta)*np.cos(alpha) ,    -np.cos(theta)*np.sin(alpha),    a*np.sin(theta)],
-                        [0            ,   np.sin(alpha)               ,    np.cos(alpha)               ,    d],
-                        [0            ,   0                           ,    0                           ,    1]])
