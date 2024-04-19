@@ -1,2 +1,2 @@
 from .Skeleton.Skeleton import Skeleton, ConstrainedSkeleton
-from .Skeleton.Skeleton import KinematicSkeleton
+from .Skeleton.Skeleton import DynamicSkeleton
