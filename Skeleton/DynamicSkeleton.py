@@ -175,7 +175,7 @@ class DynamicSkeleton(ConstrainedSkeleton):
         self.qdot_u = np.zeros(self.q_u.shape)+10
         
         self.prob = None
-
+        self.prev_mask = None
         self.joints = [self._nimble.getJoint(l) for l in nimble_joint_names]
         pos = self.correct(np.array(self._nimble.getJointWorldPositions(self.joints)))
         self.s12_base.load_from_numpy(pos.reshape(-1,3),self.kps)
@@ -202,12 +202,20 @@ class DynamicSkeleton(ConstrainedSkeleton):
     
     def scale(self):
         scale =  self._nimble.getBodyScales().reshape(-1,3)
+        # If there may be error is the height and bones estimation, return the mean of the previous
+        h = np.nanmean(self.height_history)
         for i,b in enumerate(self.body_dict.keys()):
             if self.body_dict[b] == 'Core' or self.body_dict[b] == '':
-                scale[i,:] = self.estimate_height() / self.skeleton_from_nimble.estimate_height()
+                scale[i,:] = h / self.skeleton_from_nimble.estimate_height()
             else:
-                scale[i,:] = self.bones_dict[self.body_dict[b]].length / self.skeleton_from_nimble.bones_dict[self.body_dict[b]].length
+                sc = np.nanmean(self.bones_dict[self.body_dict[b]].history) / self.skeleton_from_nimble.bones_dict[self.body_dict[b]].length
+                if np.isnan(sc) and b in self.symmetry:
+                    sc = np.nanmean(self.bones_dict[self.body_dict[self.symmetry[b]]].history) / self.skeleton_from_nimble.bones_dict[self.body_dict[self.symmetry[b]]].length
+                if not np.isnan(sc):
+                    scale[i,:] = sc
+                    
         self._nimble.setBodyScales(scale.reshape(-1,1))
+            
     
     # Inverse kinematics through gradient descend
     def gdIK(self,max_iterations=100):
@@ -273,12 +281,24 @@ class DynamicSkeleton(ConstrainedSkeleton):
             self._nimble.setPositions(q)
             i+=1
 
-    def qpIK(self,max_iterations=100,dt=None):
-        i=0       
-        if self.prob is None:         
-            self.q = cp.Parameter(self.correct(np.array(self._nimble.getPositions())).shape)
-            self.x = cp.Parameter(self.correct(np.array(self._nimble.getJointWorldPositions(self.joints))).shape)
-            self.J = cp.Parameter(self._nimble.getJointWorldPositionsJacobianWrtJointPositions(self.joints).shape)
+    def qpIK(self,max_iterations=100,dt=0.02):
+        mask = ~np.isnan(super().to_numpy(self.kps))
+        subset_joints = [self.joints[i] for i in range(len(self.joints)) if mask[i,0]]
+        
+        x_target = super().to_numpy(self.kps)[mask].reshape(1,-1).squeeze()
+        
+        if np.any(mask != self.prev_mask):
+            self.prob = None        
+        i=0
+        
+        self.prev_mask = mask
+        
+        if self.prob is None:        
+            # self.reset_position() 
+            dt = 100
+            self.q = cp.Parameter(np.array(self._nimble.getPositions()).shape)
+            self.x = cp.Parameter(np.array(self._nimble.getJointWorldPositions(subset_joints)).shape)
+            self.J = cp.Parameter(self._nimble.getJointWorldPositionsJacobianWrtJointPositions(subset_joints).shape)
             self.x_target = cp.Parameter(self.x.shape)
             self.delta = cp.Variable(self.x.shape)
             self.dq = cp.Variable(self.q.shape)
@@ -299,18 +319,24 @@ class DynamicSkeleton(ConstrainedSkeleton):
         self.dq_l.value = dt*self.qdot_l
         self.dq_u.value = dt*self.qdot_u
         self.dq_prev.value = np.zeros(self.q.shape)
-        self.x_target.value = super().to_numpy(self.kps).reshape(1,-1).squeeze()
+        self.x_target.value = x_target
+        
                 
         older_loss = np.inf
         while i < max_iterations:
             self.q.value = self._nimble.getPositions()
-            self.x.value = self.correct(np.array(self._nimble.getJointWorldPositions(self.joints)))
-            self.J.value = self._nimble.getJointWorldPositionsJacobianWrtJointPositions(self.joints)
+            x = self.correct(np.array(self._nimble.getJointWorldPositions(self.joints)))
+            J = self._nimble.getJointWorldPositionsJacobianWrtJointPositions(self.joints)
+            # print(J.shape)
+            self.J.value = J[mask.reshape(1,-1).squeeze(),:]
+            self.x.value = x[mask.reshape(1,-1).squeeze()]
             
             error = self.x.value - self.x_target.value
             loss = np.inner(error, error)
+            # print(loss)
             # print(np.abs(older_loss - loss))
             if np.abs(older_loss - loss) < 0.0001:
+                # print("exiting",i)
                 # print(i,self.prob.status,np.round(np.inner(self.x.value-self.x_target.value,self.x.value-self.x_target.value),2))
                 break
             older_loss = loss

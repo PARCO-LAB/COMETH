@@ -41,6 +41,7 @@ class Skeleton():
 
     # #kps x dim
     def load_from_numpy(self,matrix,labels):
+        # print("inside load_from _numpy:",matrix)
         if self.numpy_mapping is None:
             indici_A = {valore: indice for indice, valore in enumerate(labels)}
             self.numpy_mapping = [indici_A.get(valore) for valore in [obj.name for obj in self.keypoints_list]]
