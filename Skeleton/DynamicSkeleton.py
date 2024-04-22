@@ -6,7 +6,7 @@ import os
 import cvxpy as cp
 
 class DynamicSkeleton(ConstrainedSkeleton):
-    def __init__(self, config, name=None, osim_file=None, geometry_dir=''):
+    def __init__(self, config, name=None, osim_file=None, geometry_dir='', max_velocity=5):
         
         super().__init__(config, name)
         
@@ -170,9 +170,8 @@ class DynamicSkeleton(ConstrainedSkeleton):
         # self.qdot_l = np.array([-0.55,-0.43,-1.04,-0.74,-0.20,-0.30,-1.58,-0.57,-0.61,-1.97,0,0,0,-1.61,-0.56,-0.55,-1.97,0,0,0,-0.49,0,-0.31,-0.37,0,-0.29,0,0,0,0,0,0,-0.80,-0.84,-1.37,-1.34,-0.080,0,0,0,0,0,-0.80,-0.84,-1.42,-1.16,-0.070,0,0])
         # self.qdot_u = np.array([0.57,0.43,0.95,0.84,0.20,0.29,1.93,0.54,0.53,2.14,0,0,0,1.95,0.54,0.51,2.23,0,0,0,0.49,0,0.32,0.38,0,0.29,0,0,0,0,0,0,0.78,0.88,1.4,1.47,0.090,0,0,0,0,0,0.84,0.72,1.37,1.27,0.080,0,0])
         
-        # Maximum Velocities in Flexion and Extension Actions for Sport
-        self.qdot_l = np.zeros(self.q_u.shape)-10
-        self.qdot_u = np.zeros(self.q_u.shape)+10
+        self.qdot_l = np.zeros(self.q_u.shape)-max_velocity
+        self.qdot_u = np.zeros(self.q_u.shape)+max_velocity
         
         self.prob = None
         self.prev_mask = None
@@ -228,7 +227,7 @@ class DynamicSkeleton(ConstrainedSkeleton):
             
             error = pos - target
             loss = np.inner(error, error)
-            if np.abs(older_loss - loss) < 0.00001:
+            if np.abs(older_loss - loss) < 0.000001:
                 break
             older_loss = loss
             
