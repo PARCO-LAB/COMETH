@@ -107,7 +107,11 @@ class ConstrainedSkeleton(Skeleton):
         self.keypoints_list[8].pos = midhip
         self.keypoints_list[1].pos = midshoulder
         self.keypoints_list[0].pos = (midshoulder+midhip)/2
-                
+        
+        # Reset the confidences
+        for kp in self.keypoints_list:
+            kp.confidence = 1.0
+        
         # Update bone length history
         for b in self.bones_list:
             b.history.append(b.length)

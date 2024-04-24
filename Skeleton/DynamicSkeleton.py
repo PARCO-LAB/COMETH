@@ -5,6 +5,36 @@ import numpy as np
 import os
 import cvxpy as cp
 
+class Kalman():
+    def __init__(self,dt,s):
+        self.X = np.array([[s],[0.1],[0.01]])
+        self.P = np.diag((1, 1, 1))
+        self.F = np.array([[1, dt, dt*dt/2], [0, 1, dt], [0, 0, 1]])
+        self.Q = np.eye(self.X.shape[0])*0.5
+        self.Y = np.array([s])
+        self.H = np.array([1, 0, 0]).reshape(1,3)
+        self.R = 1 # np.eye(self.Y.shape[0])*
+        
+    def predict(self,dt = None):
+        if dt is not None:
+            self.F = np.array([[1, dt, dt*dt/2], [0, 1, dt], [0, 0, 1]])
+        self.X = np.dot(self.F,self.X) #+ np.dot(self.B,self.U)
+        self.P = np.dot(self.F, np.dot(self.P,self.F.T)) + self.Q
+
+    def update(self,Y,R=None,minval=-np.inf,maxval=np.inf):
+        self.Y = Y
+        if R is not None:
+            self.R = R
+        self.K = np.dot(self.P,self.H.T) / ( self.R + np.dot(self.H,np.dot(self.P,self.H.T)) ) 
+        self.X = self.X + self.K * ( Y - np.dot(self.H,self.X))
+        self.P = np.dot((np.eye(self.X.shape[0])- np.dot(self.K,self.H)),self.P)
+        self.X[0] = max(min(self.X[0],maxval),minval)
+        self.Y = float(np.dot(self.H,self.X))
+        return self.get_output()
+
+    def get_output(self):
+        return float(np.dot(self.H,self.X))
+
 class DynamicSkeleton(ConstrainedSkeleton):
     def __init__(self, config, name=None, osim_file=None, geometry_dir='', max_velocity=5):
         
@@ -38,7 +68,6 @@ class DynamicSkeleton(ConstrainedSkeleton):
         
         self.RShoulder = (RCAJ+RHGT)/2
         self.LShoulder = (LCAJ+LHGT)/2
-        
         self.RHip = (RASI+RPSI)/2
         self.LHip = (LASI+LPSI)/2        
         
@@ -175,14 +204,35 @@ class DynamicSkeleton(ConstrainedSkeleton):
         
         self.prob = None
         self.prev_mask = None
+        self.kf = None
         self.joints = [self._nimble.getJoint(l) for l in nimble_joint_names]
         pos = self.correct(np.array(self._nimble.getJointWorldPositions(self.joints)))
         self.s12_base.load_from_numpy(pos.reshape(-1,3),self.kps)
         self.skeleton_from_nimble.load_from_BODY12(self.s12_base)
         
     
-    def reset_position(self):
+    def reset(self):
         self._nimble.setPositions(self.neutral_position)
+        for b in self.bones_list:
+            b.history = []
+        for kp in self.keypoints_list:
+            kp._history = []
+        self.height_history = []
+        self.kf = None
+    
+    def estimate_confidence(self):
+        # Update each keypoint.confidence value
+        h = np.nanmean(self.height_history)
+        for b in self.bones_list:
+            min_l = (self.proportions[b.name][0]-2*self.proportions[b.name][1])*self.height_history[-1]
+            max_l = (self.proportions[b.name][0]+2*self.proportions[b.name][1])*self.height_history[-1]
+            # If they are in range, increase confidence
+            if b.length > min_l and b.length < max_l:
+                    b.src.confidence  = min( b.src.confidence + 0.1, 1) 
+                    b.dest.confidence  = min( b.dest.confidence + 0.1, 1) 
+            else:
+                    b.src.confidence  = max( b.src.confidence - 0.1, 0) 
+                    b.dest.confidence  = max( b.dest.confidence - 0.1, 0)
         
     
     # Remove the joint position to place the corrected hip from marker-based
@@ -230,57 +280,14 @@ class DynamicSkeleton(ConstrainedSkeleton):
             if np.abs(older_loss - loss) < 0.000001:
                 break
             older_loss = loss
-            
-            
             d_loss_d__pos = 2 * (pos - target)
             d_pos_d_joint_angles = self._nimble.getJointWorldPositionsJacobianWrtJointPositions(self.joints)
             d_loss_d_joint_angles = d_pos_d_joint_angles.T @ d_loss_d__pos
-            
-            # Lock some joints
-            # d_loss_d_joint_angles[29:32] = 0 # L scapula
-            # d_loss_d_joint_angles[39:42] = 0 # R scapula
-            # d_loss_d_joint_angles[21] = 0 # Lumbar extension
-            # d_loss_d_joint_angles[24] = 0 # Thorax extension
-            
-            q -= 0.05 * d_loss_d_joint_angles
-            
-            # # Right Hip
-            # q[6] = max(min(q[6], 140*np.pi/180), -40*np.pi/180)     # [-40,140]
-            # q[7] = max(min(q[7], 45*np.pi/180), -45*np.pi/180)     # [-40,140]
-            # q[8] = max(min(q[8], 45*np.pi/180), -45*np.pi/180)     # [-40,140]
-            # # Left Hip
-            # q[13] = max(min(q[13], 140*np.pi/180), -40*np.pi/180)     # [-40,140]
-            # q[14] = max(min(q[14], 45*np.pi/180), -45*np.pi/180)     # [-40,140]
-            # q[15] = max(min(q[15], 45*np.pi/180), -45*np.pi/180)     # [-40,140]
-            # # Right Knee
-            # q[9] = max(min(q[9], 140*np.pi/180), -10*np.pi/180)     # [-10,140]
-            # # Left Knee
-            # q[16] = max(min(q[16], 140*np.pi/180), -10*np.pi/180)     # [-10,140]
-            # # Ankles
-            # q[10] = max(min(q[10], 55*np.pi/180), -20*np.pi/180)     # [-10,140]
-            # q[17] = max(min(q[17], 55*np.pi/180), -20*np.pi/180)     # [-10,140]
-            # # # Lumbar amd thorax bending
-            # q[20] = max(min(q[20], 20*np.pi/180), -20*np.pi/180)     # [-10,140]
-            # q[23] = max(min(q[23], 20*np.pi/180), -20*np.pi/180)     # [-10,140]
-            # # # Lumbar amd thorax twist
-            # q[22] = max(min(q[22], 5*np.pi/180), -5*np.pi/180)     # [-10,140]
-            # q[25] = max(min(q[25], 5*np.pi/180), -5*np.pi/180)     # [-10,140]
-            # # Left Shoulder
-            # q[42] = max(min(q[42], 150*np.pi/180), 0*np.pi/180)    # [0,150]
-            # q[43] = max(min(q[43], 70*np.pi/180), -90*np.pi/180)    # [-70,90]
-            # q[44] = max(min(q[44], 180*np.pi/180), -60*np.pi/180)    #  [-60,180]
-            # # Right Shoulder
-            # q[32] = max(min(q[32], 0*np.pi/180), -150*np.pi/180)    # [0,150]
-            # q[33] = max(min(q[33], 90*np.pi/180), -70*np.pi/180)    # [-70,90]
-            # q[34] = max(min(q[34], 180*np.pi/180), -60*np.pi/180)    #  [-60,180]
-            # # elbow range of motion"
-            # q[45] = max(min(q[45], 154*np.pi/180), -6*np.pi/180)    # [-6,154]
-            # q[35] = max(min(q[35], 154*np.pi/180), -6*np.pi/180)    # [-6,154]
-            
+            q -= 0.05 * d_loss_d_joint_angles            
             self._nimble.setPositions(q)
             i+=1
 
-    def qpIK(self,max_iterations=100,dt=0.02):
+    def qpIK(self,max_iterations=100,dt=0.02,precision=0.00001):
         mask = ~np.isnan(super().to_numpy(self.kps))
         subset_joints = [self.joints[i] for i in range(len(self.joints)) if mask[i,0]]
         
@@ -293,13 +300,15 @@ class DynamicSkeleton(ConstrainedSkeleton):
         self.prev_mask = mask
         
         if self.prob is None:        
-            # self.reset_position() 
+            # self.reset() 
             dt = 100
             self.q = cp.Parameter(np.array(self._nimble.getPositions()).shape)
             self.x = cp.Parameter(np.array(self._nimble.getJointWorldPositions(subset_joints)).shape)
             self.J = cp.Parameter(self._nimble.getJointWorldPositionsJacobianWrtJointPositions(subset_joints).shape)
             self.x_target = cp.Parameter(self.x.shape)
             self.delta = cp.Variable(self.x.shape)
+            # self.Rdiag = cp.Parameter(self.x.shape, nonneg=True)
+            # self.Rdiag = cp.Parameter((self.x.shape[0],self.x.shape[0]), PSD = True)
             self.dq = cp.Variable(self.q.shape)
             self.constraints = [self.x + self.J@self.dq == self.x_target + self.delta]  
             # self.constraints += [self.dq[21] == 0, self.dq[24] == 0, self.dq[29:32] == 0, self.dq[39:42] == 0 ]
@@ -313,8 +322,13 @@ class DynamicSkeleton(ConstrainedSkeleton):
             self.constraints += [self.dq_prev[6:] + self.dq[6:] >= self.dq_l[6:], self.dq_prev[6:] + self.dq[6:] <= self.dq_u[6:]]
             
             self.obj = cp.Minimize( cp.quad_form(self.delta,np.eye(self.delta.shape[0])) + cp.quad_form(self.dq,np.eye(self.dq.shape[0])) )
+            # # self.obj = cp.Minimize( cp.quad_form(self.delta,cp.diag(self.Rdiag)) + cp.quad_form(self.dq,np.eye(self.dq.shape[0])) )
+            # self.obj = cp.Minimize( cp.quad_form(self.delta,self.Rdiag) + cp.quad_form(self.dq,np.eye(self.dq.shape[0])) )
             self.prob = cp.Problem(self.obj, self.constraints)
+            
         
+        # self.Rdiag.value = np.diag([self.keypoints_dict[kp].confidence for kp in self.kps for _ in range(3)])
+                
         self.dq_l.value = dt*self.qdot_l
         self.dq_u.value = dt*self.qdot_u
         self.dq_prev.value = np.zeros(self.q.shape)
@@ -326,29 +340,39 @@ class DynamicSkeleton(ConstrainedSkeleton):
             self.q.value = self._nimble.getPositions()
             x = self.correct(np.array(self._nimble.getJointWorldPositions(self.joints)))
             J = self._nimble.getJointWorldPositionsJacobianWrtJointPositions(self.joints)
-            # print(J.shape)
             self.J.value = J[mask.reshape(1,-1).squeeze(),:]
             self.x.value = x[mask.reshape(1,-1).squeeze()]
             
             error = self.x.value - self.x_target.value
             loss = np.inner(error, error)
-            # print(loss)
-            # print(np.abs(older_loss - loss))
-            if np.abs(older_loss - loss) < 0.0001:
-                # print("exiting",i)
-                # print(i,self.prob.status,np.round(np.inner(self.x.value-self.x_target.value,self.x.value-self.x_target.value),2))
+            if np.abs(older_loss - loss) < precision:
                 break
             older_loss = loss
             
             self.prob.solve(solver=cp.ECOS)
-            # print(self.dq.value)
-            self.dq_prev.value += self.dq.value
+            # print(i,self.prob.status,type(self.dq.value))
+            self.dq_prev.value += np.array(self.dq.value)
             self._nimble.setPositions(self.q.value+self.dq.value) # *0.01
             
             i+=1
-    
-   
-    
+        
+    def filter(self,dt):
+        if self.kf is None:
+            self.qpIK(100,0.02,precision=0.0001)
+            pos = self._nimble.getPositions()
+            self.kf = [Kalman(dt,pos[i]) for i in range(pos.shape[0])]
+        else:
+            [kf.predict() for kf in self.kf]
+            self.qpIK(100,0.02,precision=0.0001)
+            pos = self._nimble.getPositions()
+            for i in range(len(self.kf)):
+                pos[i] = self.kf[i].update(pos[i],minval=self.q_l[i],maxval=self.q_u[i])
+            if not (np.all(pos>=self.q_l) and np.all(pos<=self.q_u)):
+                print(pos>=self.q_l)
+                print(pos<=self.q_u)
+            self._nimble.setPositions(pos)
+            
+            
     def to_numpy(self):
         # return np.array(self._nimble.getJointWorldPositions(self.joints))
         return self.correct(np.array(self._nimble.getJointWorldPositions(self.joints)))

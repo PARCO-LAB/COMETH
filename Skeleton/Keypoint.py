@@ -13,6 +13,7 @@ class Keypoint():
         self.parent = parent
         self.dim = dim
         self._pos = None
+        self.confidence = 1.0  # range [0,1]
         self._history = []
         
     def __str__(self):
