@@ -77,81 +77,82 @@ def main():
         track_ids = d['track_ids'] if 'track_ids' in d else range(len(d['kp3d']))
         idx = 0
         for p2d, p3d, idx in zip(d['kp2d'], d['kp3d'], track_ids):
-            obj = {
-                "body_id": idx,
-                "joints": {},
-                "kp2d": {},
-            }
-            idx = idx+1
-            print(idx,len(p2d), len(p3d))
-            for joint in p3d.keys():
-                point = np.array(p3d[joint][:3])
-                point = np.append(point, 1)
-                
-                point_rotated = from_ice_to_y_up @ point
-                
-                obj["joints"][joint] = {
-                    "x": point_rotated[0],
-                    "y": point_rotated[1],
-                    "z": point_rotated[2]
+            if idx > 9:
+                obj = {
+                    "body_id": idx,
+                    "joints": {},
+                    "kp2d": {},
                 }
-                if joint in p2d:
-                    obj["joints"][joint]["u"] = p2d[joint][0]
-                    obj["joints"][joint]["v"] = p2d[joint][1]
-                    obj["joints"][joint]["acc"] = p2d[joint][2]
-            for joint in p2d.keys():
-                obj["kp2d"][joint] = p2d[joint]
-            
-            # average two joints if presents, otherwise set it to none
-            def avg(dst, j1, j2):
-                if j1 in obj["joints"] and j2 in obj["joints"]:
-                    obj["joints"][dst] = {
-                        "x": (obj["joints"][j1]["x"] + obj["joints"][j2]["x"])/2,
-                        "y": (obj["joints"][j1]["y"] + obj["joints"][j2]["y"])/2,
-                        "z": (obj["joints"][j1]["z"] + obj["joints"][j2]["z"])/2
+                idx = idx+1
+                print(idx,len(p2d), len(p3d))
+                for joint in p3d.keys():
+                    point = np.array(p3d[joint][:3])
+                    point = np.append(point, 1)
+                    
+                    point_rotated = from_ice_to_y_up @ point
+                    
+                    obj["joints"][joint] = {
+                        "x": point_rotated[0],
+                        "y": point_rotated[1],
+                        "z": point_rotated[2]
                     }
-                else:
-                    if j1 in obj["joints"]:
+                    if joint in p2d:
+                        obj["joints"][joint]["u"] = p2d[joint][0]
+                        obj["joints"][joint]["v"] = p2d[joint][1]
+                        obj["joints"][joint]["acc"] = p2d[joint][2]
+                for joint in p2d.keys():
+                    obj["kp2d"][joint] = p2d[joint]
+                
+                # average two joints if presents, otherwise set it to none
+                def avg(dst, j1, j2):
+                    if j1 in obj["joints"] and j2 in obj["joints"]:
                         obj["joints"][dst] = {
-                            "x": obj["joints"][j1]["x"],
-                            "y": obj["joints"][j1]["y"],
-                            "z": obj["joints"][j1]["z"]
-                        }
-                    elif j2 in obj["joints"]:
-                        obj["joints"][dst] = {
-                            "x": obj["joints"][j2]["x"],
-                            "y": obj["joints"][j2]["y"],
-                            "z": obj["joints"][j2]["z"]
+                            "x": (obj["joints"][j1]["x"] + obj["joints"][j2]["x"])/2,
+                            "y": (obj["joints"][j1]["y"] + obj["joints"][j2]["y"])/2,
+                            "z": (obj["joints"][j1]["z"] + obj["joints"][j2]["z"])/2
                         }
                     else:
-                        obj["joints"][dst] = {
-                            "x": None,
-                            "y": None,
-                            "z": None
-                        }
-            # append additional points
-            avg("hip", "left_hip", "right_hip")
-            avg("neck", "left_shoulder", "right_shoulder")
+                        if j1 in obj["joints"]:
+                            obj["joints"][dst] = {
+                                "x": obj["joints"][j1]["x"],
+                                "y": obj["joints"][j1]["y"],
+                                "z": obj["joints"][j1]["z"]
+                            }
+                        elif j2 in obj["joints"]:
+                            obj["joints"][dst] = {
+                                "x": obj["joints"][j2]["x"],
+                                "y": obj["joints"][j2]["y"],
+                                "z": obj["joints"][j2]["z"]
+                            }
+                        else:
+                            obj["joints"][dst] = {
+                                "x": None,
+                                "y": None,
+                                "z": None
+                            }
+                # append additional points
+                avg("hip", "left_hip", "right_hip")
+                avg("neck", "left_shoulder", "right_shoulder")
 
-            def augment(src, dst):
-                # to avoid doing this, is simpler to do one liner
-                # if "neck" in obj["joints"]:
-                #     obj["joints"]["sternum"] = obj["joints"]["neck"]
-                if src in obj["joints"]:
-                    obj["joints"][dst] = obj["joints"][src]
-            # augment points
-            augment("neck", "sternum")
-            augment("neck", "head")
-            augment("neck", "spine")
-            augment("neck", "spine1")
-            augment("neck", "spine2")
-            augment("left_shoulder", "left_clavicle")
-            augment("right_shoulder", "right_clavicle")
-            
-            # TODO little patch to get it working
-            obj["keypoints"] = obj["joints"]
-            del obj["joints"]
-            o["scene"].append(obj)
+                def augment(src, dst):
+                    # to avoid doing this, is simpler to do one liner
+                    # if "neck" in obj["joints"]:
+                    #     obj["joints"]["sternum"] = obj["joints"]["neck"]
+                    if src in obj["joints"]:
+                        obj["joints"][dst] = obj["joints"][src]
+                # augment points
+                augment("neck", "sternum")
+                augment("neck", "head")
+                augment("neck", "spine")
+                augment("neck", "spine1")
+                augment("neck", "spine2")
+                augment("left_shoulder", "left_clavicle")
+                augment("right_shoulder", "right_clavicle")
+                
+                # TODO little patch to get it working
+                obj["keypoints"] = obj["joints"]
+                del obj["joints"]
+                o["scene"].append(obj)
         out.append(o)
     
     if args.output == '-':

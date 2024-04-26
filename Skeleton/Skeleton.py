@@ -20,6 +20,8 @@ class Skeleton():
         self.bones_list = get_bones_list(self.chain)
         self.numpy_mapping = None
         self.position = np.zeros(self.dimension)
+        self.min_height = 1.44
+        self.max_height = 2.00
         
     def __str__(self):
         outstr = "Skeleton (format: {s}, dim: {d})\n".format(s=self.format,d=self.dimension)   
@@ -40,7 +42,6 @@ class Skeleton():
 
     # #kps x dim
     def load_from_numpy(self,matrix,labels):
-        # print("inside load_from _numpy:",matrix)
         if self.numpy_mapping is None:
             indici_A = {valore: indice for indice, valore in enumerate(labels)}
             self.numpy_mapping = [indici_A.get(valore) for valore in [obj.name for obj in self.keypoints_list]]
@@ -132,7 +133,7 @@ class ConstrainedSkeleton(Skeleton):
             h.append(self.bones_dict[p].length/self.proportions[p][0])
         h = np.array(h)
         if constrained:
-            outside_range_mask = np.logical_or(h < 1.44, h > 2.00)
+            outside_range_mask = np.logical_or(h < self.min_height, h > self.max_height)
             h[outside_range_mask] = np.nan
         return np.nanmean(h) if not np.all(np.isnan(h)) else np.nan
 

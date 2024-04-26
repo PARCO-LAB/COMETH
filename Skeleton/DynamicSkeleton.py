@@ -6,11 +6,11 @@ import os
 import cvxpy as cp
 
 class Kalman():
-    def __init__(self,dt,s):
+    def __init__(self,dt,s,q=0.5):
         self.X = np.array([[s],[0.1],[0.01]])
         self.P = np.diag((1, 1, 1))
         self.F = np.array([[1, dt, dt*dt/2], [0, 1, dt], [0, 0, 1]])
-        self.Q = np.eye(self.X.shape[0])*0.5
+        self.Q = np.eye(self.X.shape[0])*q
         self.Y = np.array([s])
         self.H = np.array([1, 0, 0]).reshape(1,3)
         self.R = 1 # np.eye(self.Y.shape[0])*
@@ -254,18 +254,49 @@ class DynamicSkeleton(ConstrainedSkeleton):
         # If there may be error is the height and bones estimation, return the mean of the previous
         if np.all(np.isnan(self.height_history)):
             return
+        # print("here")
         h = np.nanmean(self.height_history)
         for i,b in enumerate(self.body_dict.keys()):
             if self.body_dict[b] == 'Core' or self.body_dict[b] == '':
                 scale[i,:] = h / self.skeleton_from_nimble.estimate_height()
             else:
                 sc = np.nanmean(self.bones_dict[self.body_dict[b]].history) / self.skeleton_from_nimble.bones_dict[self.body_dict[b]].length
-                if np.isnan(sc) and b in self.symmetry:
-                    sc = np.nanmean(self.bones_dict[self.body_dict[self.symmetry[b]]].history) / self.skeleton_from_nimble.bones_dict[self.body_dict[self.symmetry[b]]].length
+                # If there is a symmetrical one
+                if self.body_dict[b] in self.symmetry:
+                    if np.isnan(sc):
+                        sc = np.nanmean(self.bones_dict[self.symmetry[self.body_dict[b]]].history) / self.skeleton_from_nimble.bones_dict[self.symmetry[self.body_dict[b]]].length
+                    else:
+                        sc_sym = np.nanmean(self.bones_dict[self.symmetry[self.body_dict[b]]].history) / self.skeleton_from_nimble.bones_dict[self.symmetry[self.body_dict[b]]].length
+                        if np.abs(1-sc) > np.abs(1-sc_sym): 
+                            sc = sc_sym
+                            print("symmetric law for",b)
                 if not np.isnan(sc):
                     scale[i,:] = sc
-        print(np.round(scale[:,0].transpose(),2))
+        
+        # Clip the scaling between fixed bounds
+        # scale = np.clip(scale,0.85,1.15)
+        avg_scale = np.mean(scale)
+        scale = np.clip(scale,avg_scale-0.05,avg_scale+0.05)
+        
         self._nimble.setBodyScales(scale.reshape(-1,1))
+
+    # def scale_old(self):
+    #     scale =  self._nimble.getBodyScales().reshape(-1,3)
+    #     # If there may be error is the height and bones estimation, return the mean of the previous
+    #     if np.all(np.isnan(self.height_history)):
+    #         return
+    #     h = np.nanmean(self.height_history)
+    #     for i,b in enumerate(self.body_dict.keys()):
+    #         if self.body_dict[b] == 'Core' or self.body_dict[b] == '':
+    #             scale[i,:] = h / self.skeleton_from_nimble.estimate_height()
+    #         else:
+    #             sc = np.nanmean(self.bones_dict[self.body_dict[b]].history) / self.skeleton_from_nimble.bones_dict[self.body_dict[b]].length
+    #             if np.isnan(sc) and self.body_dict[b] in self.symmetry:
+    #                 sc = np.nanmean(self.bones_dict[self.symmetry[self.body_dict[b]]].history) / self.skeleton_from_nimble.bones_dict[self.symmetry[self.body_dict[b]]].length
+    #             if not np.isnan(sc):
+    #                 scale[i,:] = sc
+    #     print(np.round(scale[:,0].transpose(),2))
+    #     self._nimble.setBodyScales(scale.reshape(-1,1))
             
     
     # Inverse kinematics through gradient descend
@@ -358,11 +389,11 @@ class DynamicSkeleton(ConstrainedSkeleton):
             
             i+=1
         
-    def filter(self,dt):
+    def filter(self,dt,Q=0.5):
         if self.kf is None:
             self.qpIK(100,0.02,precision=0.0001)
             pos = self._nimble.getPositions()
-            self.kf = [Kalman(dt,pos[i]) for i in range(pos.shape[0])]
+            self.kf = [Kalman(dt,pos[i],Q) for i in range(pos.shape[0])]
         else:
             [kf.predict() for kf in self.kf]
             self.qpIK(100,0.02,precision=0.0001)
