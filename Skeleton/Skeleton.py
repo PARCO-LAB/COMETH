@@ -2,8 +2,7 @@ import numpy as np
 import xml.etree.ElementTree as ET
 from Skeleton.Bone import Bone
 from Skeleton.Keypoint import Keypoint
-from Skeleton.Joint import Joint
-
+# from Skeleton.Joint import Joint
 
 class Skeleton():
     
@@ -90,7 +89,8 @@ class ConstrainedSkeleton(Skeleton):
                         for p in e:
                             self.symmetry[p.attrib["bone1"]] = p.attrib["bone2"]
                             self.symmetry[p.attrib["bone2"]] = p.attrib["bone1"]
-                        
+    
+                
     # Pass  the position of joints from a skeleton12 to a skeleton15
     def load_from_BODY12(self,s12):
         if not self.BODY12_mapping:

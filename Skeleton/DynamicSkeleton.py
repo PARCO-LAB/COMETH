@@ -252,6 +252,8 @@ class DynamicSkeleton(ConstrainedSkeleton):
     def scale(self):
         scale =  self._nimble.getBodyScales().reshape(-1,3)
         # If there may be error is the height and bones estimation, return the mean of the previous
+        if np.all(np.isnan(self.height_history)):
+            return
         h = np.nanmean(self.height_history)
         for i,b in enumerate(self.body_dict.keys()):
             if self.body_dict[b] == 'Core' or self.body_dict[b] == '':
@@ -262,7 +264,7 @@ class DynamicSkeleton(ConstrainedSkeleton):
                     sc = np.nanmean(self.bones_dict[self.body_dict[self.symmetry[b]]].history) / self.skeleton_from_nimble.bones_dict[self.body_dict[self.symmetry[b]]].length
                 if not np.isnan(sc):
                     scale[i,:] = sc
-                    
+        print(np.round(scale[:,0].transpose(),2))
         self._nimble.setBodyScales(scale.reshape(-1,1))
             
     
