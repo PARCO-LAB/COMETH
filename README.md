@@ -4,6 +4,8 @@ Biomechanical model of the human body
 ## Installation
 
 ```
+pip install nimblephysics
+pip install cvxpy
 
 ```
 
