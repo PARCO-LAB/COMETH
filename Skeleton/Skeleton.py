@@ -115,6 +115,7 @@ class ConstrainedSkeleton(Skeleton):
         
         # Update bone length history
         for b in self.bones_list:
+            # print(b.length)
             b.history.append(b.length)
         self.height_history.append(self.estimate_height())
 

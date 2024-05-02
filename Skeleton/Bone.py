@@ -29,6 +29,7 @@ class Bone():
         length = np.nan
         if self.src.pos is not None and self.src.pos is not None:
             if self.is_absolute:
+                # print(self.name,self.src.pos,self.dest.pos)
                 return calculate_distance(self.src.pos,self.dest.pos)
             else:
                 return calculate_distance(np.zeros(self.src.pos.shape),self.dest.pos)
@@ -49,5 +50,5 @@ def calculate_distance(point1, point2):
     #return np.linalg.norm(point2-point1)
     
     squared_diff = [(x - y)**2 for x, y in zip(point1, point2)]
-    
+    # print(squared_diff)
     return math.sqrt(sum(squared_diff))

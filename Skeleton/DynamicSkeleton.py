@@ -54,7 +54,6 @@ class DynamicSkeleton(ConstrainedSkeleton):
             # rajagopal_opensim: nimble.biomechanics.OpenSimFile = nimble.biomechanics.OpenSimParser.parseOsim('bsm.osim')
         self._nimble: nimble.dynamics.Skeleton = rajagopal_opensim.skeleton
         
-        self.neutral_position = self._nimble.getPositions()
         
         RASI = np.array([0,0.005,0.13])
         LASI = np.array([0,0.005,-0.13])
@@ -196,6 +195,11 @@ class DynamicSkeleton(ConstrainedSkeleton):
         self.q_l = self.q_l*np.pi/180
         self.q_u = self.q_u*np.pi/180
 
+        
+        self.neutral_position = self._nimble.getPositions()
+        s_avg = (self.q_l + self.q_u) / 2
+        self.neutral_position[6:] = s_avg[6:]
+        
         # self.qdot_l = np.array([-0.55,-0.43,-1.04,-0.74,-0.20,-0.30,-1.58,-0.57,-0.61,-1.97,0,0,0,-1.61,-0.56,-0.55,-1.97,0,0,0,-0.49,0,-0.31,-0.37,0,-0.29,0,0,0,0,0,0,-0.80,-0.84,-1.37,-1.34,-0.080,0,0,0,0,0,-0.80,-0.84,-1.42,-1.16,-0.070,0,0])
         # self.qdot_u = np.array([0.57,0.43,0.95,0.84,0.20,0.29,1.93,0.54,0.53,2.14,0,0,0,1.95,0.54,0.51,2.23,0,0,0,0.49,0,0.32,0.38,0,0.29,0,0,0,0,0,0,0.78,0.88,1.4,1.47,0.090,0,0,0,0,0,0.84,0.72,1.37,1.27,0.080,0,0])
         
@@ -210,14 +214,16 @@ class DynamicSkeleton(ConstrainedSkeleton):
         self.s12_base.load_from_numpy(pos.reshape(-1,3),self.kps)
         self.skeleton_from_nimble.load_from_BODY12(self.s12_base)
         
-    
-    def reset(self):
-        self._nimble.setPositions(self.neutral_position)
+    def reset_history(self):
         for b in self.bones_list:
             b.history = []
         for kp in self.keypoints_list:
             kp._history = []
         self.height_history = []
+    
+    def reset(self):
+        self._nimble.setPositions(self.neutral_position)
+        self.reset_history()
         self.kf = None
     
     def estimate_confidence(self):
@@ -239,8 +245,9 @@ class DynamicSkeleton(ConstrainedSkeleton):
     def correct(self,pos):
         # Correct the pelvis joint
         transform = self._nimble.getBodyNode('pelvis').getWorldTransform()
-        pos[3*self.kps.index("RHip"):3*self.kps.index("RHip")+3] = transform.multiply(self.RHip)
-        pos[3*self.kps.index("LHip"):3*self.kps.index("LHip")+3] = transform.multiply(self.LHip)
+        scale = self._nimble.getBodyNode('pelvis').getScale()
+        pos[3*self.kps.index("RHip"):3*self.kps.index("RHip")+3] = transform.multiply(np.multiply(scale,self.RHip))
+        pos[3*self.kps.index("LHip"):3*self.kps.index("LHip")+3] = transform.multiply(np.multiply(scale,self.LHip))
         
         # # Correct the scapula joints
         transform = self._nimble.getBodyNode('scapula_l').getWorldTransform()
@@ -249,7 +256,8 @@ class DynamicSkeleton(ConstrainedSkeleton):
         pos[3*self.kps.index("RShoulder"):3*self.kps.index("RShoulder")+3] = transform.multiply(self.RShoulder)
         return pos
     
-    def scale(self):
+    # Scaling better suited for noisy input (e.g., marker-less data)
+    def estimate_scale(self):
         scale =  self._nimble.getBodyScales().reshape(-1,3)
         # If there may be error is the height and bones estimation, return the mean of the previous
         if np.all(np.isnan(self.height_history)):
@@ -269,7 +277,7 @@ class DynamicSkeleton(ConstrainedSkeleton):
                         sc_sym = np.nanmean(self.bones_dict[self.symmetry[self.body_dict[b]]].history) / self.skeleton_from_nimble.bones_dict[self.symmetry[self.body_dict[b]]].length
                         if np.abs(1-sc) > np.abs(1-sc_sym): 
                             sc = sc_sym
-                            print("symmetric law for",b)
+                            # print("symmetric law for",b)
                 if not np.isnan(sc):
                     scale[i,:] = sc
         
@@ -280,45 +288,79 @@ class DynamicSkeleton(ConstrainedSkeleton):
         
         self._nimble.setBodyScales(scale.reshape(-1,1))
 
-    # def scale_old(self):
-    #     scale =  self._nimble.getBodyScales().reshape(-1,3)
-    #     # If there may be error is the height and bones estimation, return the mean of the previous
-    #     if np.all(np.isnan(self.height_history)):
-    #         return
-    #     h = np.nanmean(self.height_history)
-    #     for i,b in enumerate(self.body_dict.keys()):
-    #         if self.body_dict[b] == 'Core' or self.body_dict[b] == '':
-    #             scale[i,:] = h / self.skeleton_from_nimble.estimate_height()
-    #         else:
-    #             sc = np.nanmean(self.bones_dict[self.body_dict[b]].history) / self.skeleton_from_nimble.bones_dict[self.body_dict[b]].length
-    #             if np.isnan(sc) and self.body_dict[b] in self.symmetry:
-    #                 sc = np.nanmean(self.bones_dict[self.symmetry[self.body_dict[b]]].history) / self.skeleton_from_nimble.bones_dict[self.symmetry[self.body_dict[b]]].length
-    #             if not np.isnan(sc):
-    #                 scale[i,:] = sc
-    #     print(np.round(scale[:,0].transpose(),2))
-    #     self._nimble.setBodyScales(scale.reshape(-1,1))
+
+    # Old scaling version, only for precise input (e.g., marker-based)
+    def scale(self):
+        scale =  self._nimble.getBodyScales().reshape(-1,3)
+        # If there may be error is the height and bones estimation, return the mean of the previous
+        if np.all(np.isnan(self.height_history)):
+            return
+        h = np.nanmean(self.height_history)
+        for i,b in enumerate(self.body_dict.keys()):
+            if self.body_dict[b] == 'Core' or self.body_dict[b] == '':
+                scale[i,:] = h / self.skeleton_from_nimble.estimate_height()
+            else:
+                sc = np.nanmean(self.bones_dict[self.body_dict[b]].history) / self.skeleton_from_nimble.bones_dict[self.body_dict[b]].length
+                if np.isnan(sc) and self.body_dict[b] in self.symmetry:
+                    sc = np.nanmean(self.bones_dict[self.symmetry[self.body_dict[b]]].history) / self.skeleton_from_nimble.bones_dict[self.symmetry[self.body_dict[b]]].length
+                if not np.isnan(sc):
+                    scale[i,:] = sc
+        # print(np.round(scale[:,0].transpose(),2))
+        self._nimble.setBodyScales(scale.reshape(-1,1))
             
     
     # Inverse kinematics through gradient descend
-    def gdIK(self,max_iterations=100):
-        target = super().to_numpy(self.kps).reshape(1,-1).squeeze()
-        q = self._nimble.getPositions()
-        i=0
+    def exact_scale(self,max_iterations=1000,precision=0.001):
         older_loss = np.inf
-        while i < max_iterations:
-            pos = self.correct(np.array(self._nimble.getJointWorldPositions(self.joints)))
+        mask = ~np.isnan(super().to_numpy(self.kps)) 
+        target = super().to_numpy(self.kps)[mask].reshape(1,-1).squeeze()
+        for _ in range(max_iterations):
+            # Angular position placement
+            q = self._nimble.getPositions()
+            i=0
+            while i < max_iterations:
+                pos = self.correct(np.array(self._nimble.getJointWorldPositions(self.joints)))
+                # pos = np.array(self._nimble.getJointWorldPositions(self.joints))
+                pos = pos[mask.reshape(1,-1).squeeze()]
+                d_loss_d__pos = 2 * (pos - target)
+                d_pos_d_joint_angles = self._nimble.getJointWorldPositionsJacobianWrtJointPositions(self.joints)
+                d_pos_d_joint_angles = d_pos_d_joint_angles[mask.reshape(1,-1).squeeze(),:]
+                d_loss_d_joint_angles = d_pos_d_joint_angles.T @ d_loss_d__pos
+                q -= 0.05 * d_loss_d_joint_angles            
+                q = np.clip(q,self.q_l,self.q_u)
+                self._nimble.setPositions(q)
+                i+=1
             
-            error = pos - target
+            # Scaling setting
+            scale =  self._nimble.getBodyScales()
+            j = 0
+            while j < max_iterations:
+                pos = self.correct(np.array(self._nimble.getJointWorldPositions(self.joints)))
+                # pos = np.array(self._nimble.getJointWorldPositions(self.joints))
+                pos = pos[mask.reshape(1,-1).squeeze()]
+                d_loss_d__pos = 2 * (pos - target)
+                d_pos_d_scales = self._nimble.getJointWorldPositionsJacobianWrtBodyScales(self.joints)
+                d_pos_d_scales = d_pos_d_scales[mask.reshape(1,-1).squeeze(),:]
+                # d_pos_d_scales = d_pos_d_scales[mask.reshape(1,-1).squeeze(),0:72:3]
+                d_loss_d_scales = d_pos_d_scales.T @ d_loss_d__pos
+                # d_loss_d_scales = d_loss_d_scales.reshape((1,-1))
+                # d_loss_d_scales = np.array([d_loss_d_scales,d_loss_d_scales,d_loss_d_scales]).transpose()
+                # d_loss_d_scales = d_loss_d_scales.squeeze().reshape((-1,))
+                scale -= 0.001 * d_loss_d_scales
+                self._nimble.setBodyScales(scale)
+                j+=1
+
+            error = np.array(self._nimble.getJointWorldPositions(self.joints))[mask.reshape(1,-1).squeeze()] - target
             loss = np.inner(error, error)
-            if np.abs(older_loss - loss) < 0.000001:
+            if np.abs(older_loss - loss) < precision:
+                print(loss)
                 break
             older_loss = loss
-            d_loss_d__pos = 2 * (pos - target)
-            d_pos_d_joint_angles = self._nimble.getJointWorldPositionsJacobianWrtJointPositions(self.joints)
-            d_loss_d_joint_angles = d_pos_d_joint_angles.T @ d_loss_d__pos
-            q -= 0.05 * d_loss_d_joint_angles            
-            self._nimble.setPositions(q)
-            i+=1
+            
+
+
+
+
 
     def qpIK(self,max_iterations=100,dt=0.02,precision=0.00001):
         mask = ~np.isnan(super().to_numpy(self.kps))
@@ -400,9 +442,9 @@ class DynamicSkeleton(ConstrainedSkeleton):
             pos = self._nimble.getPositions()
             for i in range(len(self.kf)):
                 pos[i] = self.kf[i].update(pos[i],minval=self.q_l[i],maxval=self.q_u[i])
-            if not (np.all(pos>=self.q_l) and np.all(pos<=self.q_u)):
-                print(pos>=self.q_l)
-                print(pos<=self.q_u)
+            # if not (np.all(pos>=self.q_l) and np.all(pos<=self.q_u)):
+            #     print(pos>=self.q_l)
+            #     print(pos<=self.q_u)
             self._nimble.setPositions(pos)
             
             

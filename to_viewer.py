@@ -77,7 +77,8 @@ def main():
         track_ids = d['track_ids'] if 'track_ids' in d else range(len(d['kp3d']))
         idx = 0
         for p2d, p3d, idx in zip(d['kp2d'], d['kp3d'], track_ids):
-            if idx > 9:
+            if idx > -1:
+                # idx = idx - 10
                 obj = {
                     "body_id": idx,
                     "joints": {},
