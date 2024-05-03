@@ -1,5 +1,5 @@
 import numpy as np
-from Skeleton.Keypoint import Keypoint
+from .Keypoint import Keypoint
 import math
 
 class Bone():

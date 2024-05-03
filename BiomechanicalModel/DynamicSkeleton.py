@@ -1,4 +1,4 @@
-from Skeleton.Skeleton import Skeleton,ConstrainedSkeleton
+from .Skeleton import Skeleton,ConstrainedSkeleton
 import nimblephysics as nimble
 import torch
 import numpy as np
