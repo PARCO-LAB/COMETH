@@ -315,7 +315,6 @@ class DynamicSkeleton(ConstrainedSkeleton):
     #     # print(np.round(scale[:,0].transpose(),2))
     #     self._nimble.setBodyScales(scale.reshape(-1,1))
             
-    
     # Inverse kinematics through gradient descend
     def exact_scale(self,max_iterations=1000,precision=0.001):
         older_loss = np.inf
@@ -360,7 +359,7 @@ class DynamicSkeleton(ConstrainedSkeleton):
             error = np.array(self._nimble.getJointWorldPositions(self.joints))[mask.reshape(1,-1).squeeze()] - target
             loss = np.inner(error, error)
             if np.abs(older_loss - loss) < precision:
-                print(loss)
+                # print(loss)
                 break
             older_loss = loss
             
@@ -428,6 +427,7 @@ class DynamicSkeleton(ConstrainedSkeleton):
             error = self.x.value - self.x_target.value
             loss = np.inner(error, error)
             if np.abs(older_loss - loss) < precision:
+                print("RUN N",i)
                 break
             older_loss = loss
             
@@ -444,9 +444,7 @@ class DynamicSkeleton(ConstrainedSkeleton):
         subsets_joints = []
         for mask in masks:
             subsets_joints.append([self.joints[i] for i in range(len(self.joints)) if mask[i,0]])
-            
-        x_targets = [targets[i][masks[i]].reshape(1,-1).squeeze() for i in range(len(masks))]
-                
+                            
         # For now, we have to recompute the problem every time!
         # if np.any(mask != self.prev_mask):
         #     self.prob = None        
@@ -500,8 +498,9 @@ class DynamicSkeleton(ConstrainedSkeleton):
             
             error = np.nanmean([self.xs[j].value - self.x_targets[j].value])
             loss = np.inner(error, error)
-            print("loss",loss)
+            # print("loss",loss)
             if np.abs(older_loss - loss) < precision:
+                print("MRUN N",i)
                 break
             older_loss = loss
             
@@ -512,15 +511,15 @@ class DynamicSkeleton(ConstrainedSkeleton):
             i+=1
     
       
-    def filter(self,data_list=None,dt=0.1,Q=0.5,to_predict=True):
+    def filter(self,data_list=None,dt=100,Q=0.5,to_predict=True):
         if self.kf is None:
-            self.qpIK(100,dt,precision=0.0001) if data_list is None else self.multisource_qpIK(data_list,100,dt,precision=0.0001)
+            self.qpIK(100,dt,precision=0.001) if data_list is None else self.multisource_qpIK(data_list,100,dt,precision=0.001)
             pos = self._nimble.getPositions()
             self.kf = [Kalman(dt,pos[i],Q) for i in range(pos.shape[0])]
         else:
             if to_predict:
                 [kf.predict() for kf in self.kf]
-            self.qpIK(100,dt,precision=0.0001) if data_list is None else self.multisource_qpIK(data_list,100,dt,precision=0.0001)
+            self.qpIK(100,dt,precision=0.001) if data_list is None else self.multisource_qpIK(data_list,100,dt,precision=0.001)
             
             pos = self._nimble.getPositions() # q from measurements
             
