@@ -1,4 +1,4 @@
-# Biomechanical-Model
+# COMETH: Convex Optimization for Modelling, Estimating, and Tracking Humans
 Biomechanical model of the human body
 
 ## Installation
