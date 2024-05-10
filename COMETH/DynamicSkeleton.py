@@ -218,6 +218,8 @@ class DynamicSkeleton(ConstrainedSkeleton):
         self.s12_base.load_from_numpy(pos.reshape(-1,3),self.kps)
         self.skeleton_from_nimble.load_from_BODY12(self.s12_base)
         
+        self.multisource_qpIK_problems = {}
+        
         self.reset()
         
     def reset_history(self):
@@ -439,25 +441,34 @@ class DynamicSkeleton(ConstrainedSkeleton):
             i+=1
     
     def multisource_qpIK(self,targets,max_iterations=100,dt=0.02,precision=0.00001):
+        
         masks = [~np.isnan(t) for t in targets]
         
+        nkey = np.sort([int(np.sum(m[:,0])) for m in masks])
+        
+        permutation = np.argsort([int(np.sum(m[:,0])) for m in masks])
+        
+        targets = [targets[i] for i in permutation]
+        masks = [masks[i] for i in permutation]
+        
+        key = ""
+        for k in nkey.tolist():
+            key+=str(k)+"."
+        
+        print(key,key in self.multisource_qpIK_problems.keys())
+        
+        problem_to_build = False if key in self.multisource_qpIK_problems.keys() else True
+            
         subsets_joints = []
         for mask in masks:
             subsets_joints.append([self.joints[i] for i in range(len(self.joints)) if mask[i,0]])
-                            
-        # For now, we have to recompute the problem every time!
-        # if np.any(mask != self.prev_mask):
-        #     self.prob = None        
-        # i=0
-        # self.prev_mask = mask
-        
+                
         if np.all(self._nimble.getPositions() == self.neutral_position):
             dt = 100
         
         # Every time set a new problem. It's slower but can be improved
-        if True:
+        if problem_to_build:
             self.q = cp.Parameter(np.array(self._nimble.getPositions()).shape)
-            self.xs = [cp.Parameter(np.array(self._nimble.getJointWorldPositions(subset_joint)).shape) for subset_joint in subsets_joints]
             self.xs = [cp.Parameter(np.array(self._nimble.getJointWorldPositions(subset_joint)).shape) for subset_joint in subsets_joints]
             self.Js = [cp.Parameter(self._nimble.getJointWorldPositionsJacobianWrtJointPositions(subset_joint).shape) for subset_joint in subsets_joints]
             self.x_targets = [cp.Parameter(x.shape) for x in self.xs]
@@ -477,6 +488,26 @@ class DynamicSkeleton(ConstrainedSkeleton):
                 to_minimize += cp.quad_form(delta,np.eye(delta.shape[0]))
             self.obj = cp.Minimize(to_minimize)
             self.prob = cp.Problem(self.obj, self.constraints)
+            self.multisource_qpIK_problems[key] = {"problem": self.prob, 
+                                                   "x_targets":self.x_targets,
+                                                   "xs" : self.xs,
+                                                   "Js" : self.Js,
+                                                   "deltas" : self.deltas,
+                                                   "dq_l" : self.dq_l,
+                                                   "dq_u" : self.dq_u,
+                                                   "dq_prev" : self.dq_prev,
+                                                   "dq" : self.dq,
+                                                   }
+        else:
+            self.prob = self.multisource_qpIK_problems[key]["problem"]
+            self.x_targets = self.multisource_qpIK_problems[key]["x_targets"]
+            self.xs = self.multisource_qpIK_problems[key]["xs"]
+            self.Js = self.multisource_qpIK_problems[key]["Js"]
+            self.deltas = self.multisource_qpIK_problems[key]["deltas"]
+            self.dq_l = self.multisource_qpIK_problems[key]["dq_l"]
+            self.dq_u = self.multisource_qpIK_problems[key]["dq_u"]
+            self.dq_prev = self.multisource_qpIK_problems[key]["dq_prev"]
+            self.dq = self.multisource_qpIK_problems[key]["dq"]
         
         # self.Rdiag.value = np.diag([self.keypoints_dict[kp].confidence for kp in self.kps for _ in range(3)])
                 
@@ -504,7 +535,8 @@ class DynamicSkeleton(ConstrainedSkeleton):
                 break
             older_loss = loss
             
-            self.prob.solve(solver=cp.ECOS)
+            # self.prob.solve(solver=cp.ECOS)
+            self.prob.solve(solver=cp.OSQP, warm_start=True)
             # print(i,self.prob.status,type(self.dq.value))
             self.dq_prev.value += np.array(self.dq.value)
             self._nimble.setPositions(self.q.value+self.dq.value) # *0.01
@@ -513,13 +545,14 @@ class DynamicSkeleton(ConstrainedSkeleton):
       
     def filter(self,data_list=None,dt=100,Q=0.5,to_predict=True):
         if self.kf is None:
-            self.qpIK(100,dt,precision=0.001) if data_list is None else self.multisource_qpIK(data_list,100,dt,precision=0.001)
+            self.qpIK(10,dt,precision=0.01) if data_list is None else self.multisource_qpIK(data_list,10,dt,precision=0.01)
             pos = self._nimble.getPositions()
             self.kf = [Kalman(dt,pos[i],Q) for i in range(pos.shape[0])]
         else:
             if to_predict:
                 [kf.predict() for kf in self.kf]
-            self.qpIK(100,dt,precision=0.001) if data_list is None else self.multisource_qpIK(data_list,100,dt,precision=0.001)
+            # self.qpIK(10,dt,precision=0.01) if data_list is None else self.multisource_qpIK(data_list,10,dt,precision=0.01)
+            self.qpIK(10,dt,precision=0.01) if data_list is None else self.multisource_qpIK(data_list,10,dt,precision=0.01)
             
             pos = self._nimble.getPositions() # q from measurements
             
