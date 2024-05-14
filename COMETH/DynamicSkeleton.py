@@ -37,7 +37,7 @@ class Kalman():
         return float(np.dot(self.H,self.X))
 
 class DynamicSkeleton(ConstrainedSkeleton):
-    def __init__(self, config=current_path+'BODY15_constrained_3D.xml', name=None, osim_file=None, geometry_dir='', max_velocity=5):
+    def __init__(self, config=current_path+'BODY15_constrained_3D.xml', name=None, osim_file=None, geometry_dir='', max_velocity=None):
         
         super().__init__(config, name)
         self.timestamp = 0
@@ -205,11 +205,15 @@ class DynamicSkeleton(ConstrainedSkeleton):
         s_avg = (self.q_l + self.q_u) / 2
         self.neutral_position[6:] = s_avg[6:]
         
-        # self.qdot_l = np.array([-0.55,-0.43,-1.04,-0.74,-0.20,-0.30,-1.58,-0.57,-0.61,-1.97,0,0,0,-1.61,-0.56,-0.55,-1.97,0,0,0,-0.49,0,-0.31,-0.37,0,-0.29,0,0,0,0,0,0,-0.80,-0.84,-1.37,-1.34,-0.080,0,0,0,0,0,-0.80,-0.84,-1.42,-1.16,-0.070,0,0])
-        # self.qdot_u = np.array([0.57,0.43,0.95,0.84,0.20,0.29,1.93,0.54,0.53,2.14,0,0,0,1.95,0.54,0.51,2.23,0,0,0,0.49,0,0.32,0.38,0,0.29,0,0,0,0,0,0,0.78,0.88,1.4,1.47,0.090,0,0,0,0,0,0.84,0.72,1.37,1.27,0.080,0,0])
-        
-        self.qdot_l = np.zeros(self.q_u.shape)-max_velocity
-        self.qdot_u = np.zeros(self.q_u.shape)+max_velocity
+        if max_velocity is None:
+            # Acquired from BSM dataset
+            # self.qdot_l = np.array([-0.55,-0.43,-1.04,-0.74,-0.20,-0.30,-1.58,-0.57,-0.61,-1.97,0,0,0,-1.61,-0.56,-0.55,-1.97,0,0,0,-0.49,0,-0.31,-0.37,0,-0.29,0,0,0,0,0,0,-0.80,-0.84,-1.37,-1.34,-0.080,0,0,0,0,0,-0.80,-0.84,-1.42,-1.16,-0.070,0,0])
+            # self.qdot_u = np.array([0.57,0.43,0.95,0.84,0.20,0.29,1.93,0.54,0.53,2.14,0,0,0,1.95,0.54,0.51,2.23,0,0,0,0.49,0,0.32,0.38,0,0.29,0,0,0,0,0,0,0.78,0.88,1.4,1.47,0.090,0,0,0,0,0,0.84,0.72,1.37,1.27,0.080,0,0])
+            self.qdot_l = np.array([-1,-1,-1,-2,-2,-2,-1.58,-0.57,-0.61,-1.97,0,0,0,-1.61,-0.56,-0.55,-1.97,0,0,0,-0.49,0,-0.31,-0.37,0,-0.29,0,0,0,0,0,0,-0.80,-0.84,-1.37,-1.34,-0.080,0,0,0,0,0,-0.80,-0.84,-1.42,-1.16,-0.070,0,0])
+            self.qdot_u = np.array([1,1,1,2,2,2,1.93,0.54,0.53,2.14,0,0,0,1.95,0.54,0.51,2.23,0,0,0,0.49,0,0.32,0.38,0,0.29,0,0,0,0,0,0,0.78,0.88,1.4,1.47,0.090,0,0,0,0,0,0.84,0.72,1.37,1.27,0.080,0,0])
+        else:
+            self.qdot_l = np.zeros(self.q_u.shape)-max_velocity
+            self.qdot_u = np.zeros(self.q_u.shape)+max_velocity
         
         self.prob = None
         self.prev_mask = None
@@ -395,13 +399,15 @@ class DynamicSkeleton(ConstrainedSkeleton):
             self.delta = cp.Variable((nkey*3,))
             self.dq = cp.Variable((49,))
             self.constraints = [self.x + self.J@self.dq == self.x_target + self.delta]  
-            self.constraints += [-self.dq[6:] >= -1*(self.q_u[6:]-self.q[6:]), self.dq[6:] >= -1*(self.q[6:]-self.q_l[6:])]
+            # self.constraints += [-self.dq[6:] >= -1*(self.q_u[6:]-self.q[6:]), self.dq[6:] >= -1*(self.q[6:]-self.q_l[6:])]
+            self.constraints += [-self.dq >= -1*(self.q_u-self.q), self.dq >= -1*(self.q-self.q_l)]
             self.dq_prev = cp.Parameter((49,))
 
             # Velocity constraints
             self.dq_l = cp.Parameter((49,))
             self.dq_u = cp.Parameter((49,))
-            self.constraints += [self.dq_prev[6:] + self.dq[6:] >= self.dq_l[6:], self.dq_prev[6:] + self.dq[6:] <= self.dq_u[6:]]
+            # self.constraints += [self.dq_prev[6:] + self.dq[6:] >= self.dq_l[6:], self.dq_prev[6:] + self.dq[6:] <= self.dq_u[6:]]
+            self.constraints += [self.dq_prev + self.dq >= self.dq_l, self.dq_prev + self.dq <= self.dq_u]
             self.obj = cp.Minimize( cp.quad_form(self.delta,np.eye(self.delta.shape[0])) + cp.quad_form(self.dq,np.eye(self.dq.shape[0])) )
             self.prob = cp.Problem(self.obj, self.constraints)
             self.qpIK_problems[key] = {"problem": self.prob, 
@@ -448,7 +454,8 @@ class DynamicSkeleton(ConstrainedSkeleton):
                 break
             older_loss = loss
             
-            self.prob.solve(solver=cp.ECOS)
+            # self.prob.solve(solver=cp.ECOS)
+            self.prob.solve(solver=cp.OSQP)
             # print(i,self.prob.status,type(self.dq.value))
             self.dq_prev.value += np.array(self.dq.value)
             self._nimble.setPositions(self.q.value+self.dq.value) # *0.01
@@ -492,12 +499,14 @@ class DynamicSkeleton(ConstrainedSkeleton):
             self.constraints = []
             self.constraints += [self.xs[i] + self.Js[i]@self.dq == self.x_targets[i] + self.deltas[i] for i in range(len(masks))]
             # Joint limits
-            self.constraints += [-self.dq[6:] >= -1*(self.q_u[6:]-self.q[6:]), self.dq[6:] >= -1*(self.q[6:]-self.q_l[6:])]
+            # self.constraints += [-self.dq[6:] >= -1*(self.q_u[6:]-self.q[6:]), self.dq[6:] >= -1*(self.q[6:]-self.q_l[6:])]
+            self.constraints += [-self.dq >= -1*(self.q_u-self.q), self.dq >= -1*(self.q-self.q_l)]
             self.dq_prev = cp.Parameter((49,))
             # Velocity constraints
             self.dq_l = cp.Parameter((49,))
             self.dq_u = cp.Parameter((49,))
-            self.constraints += [self.dq_prev[6:] + self.dq[6:] >= self.dq_l[6:], self.dq_prev[6:] + self.dq[6:] <= self.dq_u[6:]]
+            # self.constraints += [self.dq_prev[6:] + self.dq[6:] >= self.dq_l[6:], self.dq_prev[6:] + self.dq[6:] <= self.dq_u[6:]]
+            self.constraints += [self.dq_prev + self.dq >= self.dq_l, self.dq_prev + self.dq <= self.dq_u]
             to_minimize = cp.quad_form(self.dq,np.eye(self.dq.shape[0]))
             for delta in self.deltas:
                 to_minimize += cp.quad_form(delta,np.eye(delta.shape[0]))
