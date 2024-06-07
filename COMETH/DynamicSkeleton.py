@@ -383,7 +383,8 @@ class DynamicSkeleton(ConstrainedSkeleton):
         nkey = np.sum(mask[:,0])
         key = str(np.sum(mask[:,0]))+"."
             
-        print(key,key in self.qpIK_problems.keys())
+        # TODO: it is important to log?
+        # print(key,key in self.qpIK_problems.keys())
         
         problem_to_build = False if key in self.qpIK_problems.keys() else True
                     
@@ -450,7 +451,8 @@ class DynamicSkeleton(ConstrainedSkeleton):
             error = self.x.value - self.x_target.value
             loss = np.inner(error, error)
             if np.abs(older_loss - loss) < precision:
-                print("RUN N",i)
+                # TODO: it is important to log?
+                # print("RUN N",i)
                 break
             older_loss = loss
             
@@ -477,7 +479,8 @@ class DynamicSkeleton(ConstrainedSkeleton):
         for k in nkey.tolist():
             key+=str(k)+"."
         
-        print(key,key in self.qpIK_problems.keys())
+        # TODO: remove?
+        # print(key,key in self.qpIK_problems.keys())
         
         problem_to_build = False if key in self.qpIK_problems.keys() else True
             
