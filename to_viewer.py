@@ -8,6 +8,7 @@ class ArgumentParser(Tap):
     """If - it means stdout. Otherwise, filepath to write"""
     no_rotate: bool=False
     """Avoid the 90 degree rotation on Y axis"""
+    rotation: int=-90
     # pare: Optional[str]
     # """Filepath to load PARE data if existing"""
 
@@ -63,7 +64,7 @@ def main():
     # Y-up world. Rotate -90 degrees on X axis
     from_ice_to_y_up = np.eye(4)
     if not args.no_rotate:
-        from_ice_to_y_up[:3,:3] = R.from_euler("xyz", [-np.pi/2, 0, 0], degrees=False).as_matrix()
+        from_ice_to_y_up[:3,:3] = R.from_euler("xyz", [np.deg2rad(args.rotation), 0, 0], degrees=False).as_matrix()
     
 
     out = []
@@ -85,7 +86,8 @@ def main():
                     "kp2d": {},
                 }
                 idx = idx+1
-                print(idx,len(p2d), len(p3d))
+                # print(idx,len(p2d), len(p3d))
+                print(d['frame_id'],idx,p2d,p3d)
                 for joint in p3d.keys():
                     point = np.array(p3d[joint][:3])
                     point = np.append(point, 1)
