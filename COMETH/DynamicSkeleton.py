@@ -1,3 +1,4 @@
+from typing import Dict, Tuple
 from .Skeleton import Skeleton,ConstrainedSkeleton
 import nimblephysics as nimble
 import torch
@@ -36,6 +37,9 @@ class Kalman():
     def get_output(self):
         return float(np.dot(self.H,self.X))
 
+# template to use from file reading for insane speedup
+template_skeleton: Dict[str, Tuple[nimble.dynamics.Skeleton, str]] = {}
+
 class DynamicSkeleton(ConstrainedSkeleton):
     def __init__(self, config=current_path+'BODY15_constrained_3D.xml', name=None, osim_file=None, geometry_dir='', max_velocity=None):
         
@@ -44,20 +48,23 @@ class DynamicSkeleton(ConstrainedSkeleton):
         self.last_timestamp = 0
         self.keypoints_dict = {obj.name: obj for obj in self.keypoints_list}
 
-        if osim_file is not None:
-            # rajagopal_opensim: nimble.biomechanics.OpenSimFile = nimble.RajagopalHumanBodyModel()
-            rajagopal_opensim: nimble.biomechanics.OpenSimFile = nimble.biomechanics.OpenSimParser.parseOsim(osim_file,geometry_dir)
-            self.type = 'BSM'
+        if osim_file not in template_skeleton:
+            if osim_file is not None:
+                # rajagopal_opensim: nimble.biomechanics.OpenSimFile = nimble.RajagopalHumanBodyModel()
+                rajagopal_opensim: nimble.biomechanics.OpenSimFile = nimble.biomechanics.OpenSimParser.parseOsim(osim_file,geometry_dir)
+                self.type = 'BSM'
+            else:
+                rajagopal_opensim: nimble.biomechanics.OpenSimFile = nimble.biomechanics.OpenSimParser.parseOsim(current_path+"bsm.osim")
+                self.type = 'BSM'
+            self._nimble: nimble.dynamics.Skeleton = rajagopal_opensim.skeleton
+            # cache it!
+            template_skeleton[osim_file] = (rajagopal_opensim.skeleton.clone(), self.type)
         else:
-            rajagopal_opensim: nimble.biomechanics.OpenSimFile = nimble.biomechanics.OpenSimParser.parseOsim(current_path+"bsm.osim")
-            self.type = 'BSM'
-        #     # print(osim_file)
-        #     # rajagopal_opensim: nimble.biomechanics.OpenSimFile = nimble.biomechanics.OpenSimParser.parseOsim(osim_file)
-        #     rajagopal_opensim: nimble.biomechanics.OpenSimFile = nimble.RajagopalHumanBodyModel()
-        #     self.type = 'rajagopal'
-            # rajagopal_opensim: nimble.biomechanics.OpenSimFile = nimble.biomechanics.OpenSimParser.parseOsim('bsm.osim')
-        self._nimble: nimble.dynamics.Skeleton = rajagopal_opensim.skeleton
-        
+            cache = template_skeleton[osim_file]
+            self._nimble: nimble.dynamics.Skeleton = cache[0].clone()
+            self.type = cache[1]
+            
+
         self.measurements = []
         
         RASI = np.array([0,0.005,0.13])
@@ -560,7 +567,8 @@ class DynamicSkeleton(ConstrainedSkeleton):
             loss = np.inner(error, error)
             # print("loss",loss)
             if np.abs(older_loss - loss) < precision:
-                print("MRUN N",i)
+                # TODO: fix it?
+                #print("MRUN N",i)
                 break
             older_loss = loss
             
@@ -945,7 +953,7 @@ class DynamicSkeleton(ConstrainedSkeleton):
             self._nimble.setPositions(self.q.value+self.dq.value) # *0.01
             i+=1
       
-    def filter(self,data_list=None,dt=100,Q=0.5,to_predict=True):
+    def filter(self,data_list=None,dt=100,Q=0.001,to_predict=True):
         if self.kf is None:
             self.qpIK(10,dt,precision=0.01) if data_list is None else self.multisource_qpIK(data_list,10,dt,precision=0.01)
             pos = self._nimble.getPositions()
