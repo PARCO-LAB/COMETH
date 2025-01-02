@@ -2,6 +2,9 @@ import numpy as np
 from scipy.optimize import linear_sum_assignment
 from itertools import combinations
 
+def generate_combinations(values, n):
+    return [list(comb) for comb in combinations(values, n)]
+
 def MPJPE(s,gt):
     distances = np.linalg.norm(s - gt, axis=1)
     return distances
@@ -21,9 +24,6 @@ def calculate_3d_distance(keypoints1, keypoints2):
     # print(keypoints2)
     return np.nanmean(np.linalg.norm(keypoints1 - keypoints2, axis=1))
 
-
-def generate_combinations(values, n):
-    return [list(comb) for comb in combinations(values, n)]
 
 # score in [0,1]
 def score(A,B):
