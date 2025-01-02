@@ -1,5 +1,9 @@
 import numpy as np
 from scipy.optimize import linear_sum_assignment
+from itertools import combinations
+
+def generate_combinations(values, n):
+    return [list(comb) for comb in combinations(values, n)]
 
 def MPJPE(s,gt):
     distances = np.linalg.norm(s - gt, axis=1)
@@ -70,6 +74,10 @@ def assA(TP,totIDs):
     return assa, asspr, assre
                 
     
+def hota_par(grid, index, predicted_keypoints, predicted_ids, ground_truth_keypoints, ground_truth_ids, distance_threshold=0.5):
+    grid.append(hota(predicted_keypoints, predicted_ids, ground_truth_keypoints, ground_truth_ids, distance_threshold=0.5))
+    
+    
 def hota(predicted_keypoints, predicted_ids, ground_truth_keypoints, ground_truth_ids, distance_threshold=0.5):
     """
     Calculate Higher Order Tracking Accuracy (HOTA) for 3D human pose estimation.
@@ -82,7 +90,7 @@ def hota(predicted_keypoints, predicted_ids, ground_truth_keypoints, ground_trut
     distance_threshold: Distance threshold for considering a keypoint as a true positive
     
     Returns:
-    float: HOTA score
+    list of floats: HOTA score and its components
     """
     assert len(predicted_keypoints) == len(ground_truth_keypoints), "Number of frames must match"
     assert len(predicted_ids) == len(ground_truth_ids), "Number of frames must match"
@@ -145,19 +153,8 @@ def hota(predicted_keypoints, predicted_ids, ground_truth_keypoints, ground_trut
         assa,asspr,assre = assA(matched_id,totIDs)
     else:
         assa, asspr, assre = np.nan, np.nan, np.nan
+    return [loca, deta, detpr, detre, assa,asspr,assre,np.sqrt(assa*deta)]
     
-    
-    
-    # print("loc:",round(loca,2))
-    # print("det:",round(deta,2),round(detpr,2),round(detre,2))
-    # print("ass:",round(assa,2),round(asspr,2),round(assre,2))
-    # print("hota",round(np.sqrt(assa*deta),2))
-    
-    return loca, deta, detpr, detre, assa,asspr,assre,np.sqrt(assa*deta)
-    
-    # hota_score = np.sqrt(da * aa)
-    # return hota_score
-
 def hota_3d_old(predicted_keypoints, predicted_ids, ground_truth_keypoints, ground_truth_ids, distance_threshold=0.5):
     """
     Calculate Higher Order Tracking Accuracy (HOTA) for 3D human pose estimation.
