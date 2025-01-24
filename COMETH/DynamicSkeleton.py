@@ -90,8 +90,13 @@ class DynamicSkeleton(ConstrainedSkeleton):
         self.q_l = COMETH_parameters.Q_LOWER_BOUND*np.pi/180
         self.q_u = COMETH_parameters.Q_UPPER_BOUND*np.pi/180
 
-        # Set the initial position in between the limits
+        # Set the initial position in between the limits 
+        # Root initial position [xrot?,yrot?,zrot?,xpos,ypos,zpos]
         self.neutral_position = self._nimble.getPositions()
+        self.neutral_position[:6] = np.zeros(6)
+        self.neutral_position[0] = np.pi
+        self.neutral_position[2] = -np.pi/2
+        # Joints initial position
         s_avg = (self.q_l + self.q_u) / 2
         self.neutral_position[6:] = s_avg[6:]
         
@@ -177,15 +182,24 @@ class DynamicSkeleton(ConstrainedSkeleton):
             m = self.measurements[i][mapping,:]
             self.s12_base.load_from_numpy(m,self.kps)
             self.s15_base.load_from_BODY12(self.s12_base)
-            
-            for j,b in enumerate(self.s15_base.bones_list):
-                if abs(self.bones_dict[b.name].length-b.length) > COMETH_parameters.MAX_BONE_LENGTH:
-                    print("Removed",b.src.name,b.dest.name)
-                    self.s15_base.bones_list[j].src.pos = np.array([np.nan,np.nan,np.nan])
+            for j,b in enumerate(self.s15_base.bones_list):               
+                if  b.length > COMETH_parameters.MAX_BONE_LENGTH or \
+                    abs(self.bones_dict[b.name].length-b.length) > COMETH_parameters.MAX_BONE_LENGTH_DIFFERENCE:
+                    print("Removed", b.dest.name)
+                    # self.s15_base.bones_list[j].src.pos = np.array([np.nan,np.nan,np.nan])
                     self.s15_base.bones_list[j].dest.pos = np.array([np.nan,np.nan,np.nan])
-            # exit()
             # Dump back the keypoints into the measurements format
             m = self.s15_base.to_numpy(self.kps)
+            
+            # print(m)
+            # Remove out of cluster measurements
+            distances = np.linalg.norm(m - np.nanmean(m, axis=0), axis=1)
+            threshold = max(np.nanmean(distances) + 2 * np.nanstd(distances), COMETH_parameters.MAX_DISTANCE_FROM_CLUSTER)
+            m[distances > threshold, :] = np.nan
+            # print(threshold)
+            # print(m)
+            # exit()
+            
             if np.all(np.isnan(m)):
                 self.measurements.pop(i)
             else:
@@ -364,22 +378,27 @@ class DynamicSkeleton(ConstrainedSkeleton):
         for i,x_target in enumerate(self.x_targets):
             x_target.value = targets[i][masks[i]]
         
-        
+        i = 0
         older_loss = np.inf
         while i < max_iterations:
             self.q.value = self._nimble.getPositions()
+            # x is the position of the skeleton joints in the 3D, J the jacobian
             x = self.correct(np.array(self._nimble.getJointWorldPositions(self.joints)))
             J = self._nimble.getJointWorldPositionsJacobianWrtJointPositions(self.joints)
+            # For each target, update the values of the jacobians and the starting position
             for j in range(len(self.x_targets)):
                 self.Js[j].value = J[masks[j].reshape(1,-1).squeeze(),:]
                 self.xs[j].value = x[masks[j].reshape(1,-1).squeeze()]
             
-            error = np.nanmean([self.xs[j].value - self.x_targets[j].value])
+            # V0-1-2 Loss
+            # error = np.nanmean([self.xs[j].value - self.x_targets[j].value])
+            
+            # V3 Loss
+            error = np.nanmean([np.nanmean(self.xs[j].value - self.x_targets[j].value) for j in range(len(self.x_targets))])
+            
+            # If the error loss is stationary, exit
             loss = np.inner(error, error)
-            # print("loss",loss)
             if np.abs(older_loss - loss) < precision:
-                # TODO: fix it?
-                #print("MRUN N",i)
                 break
             older_loss = loss
             

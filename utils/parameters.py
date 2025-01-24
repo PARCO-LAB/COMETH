@@ -1,6 +1,13 @@
 import numpy as np
 # Maximum bone length that a incoming measuremenet must have w.r.t. the skeleton
-MAX_BONE_LENGTH = 0.5   # meters
+MAX_BONE_LENGTH_DIFFERENCE = 0.5   # meters
+
+# Maximum absolute value that a incoming measured bone must have
+MAX_BONE_LENGTH = 1   # meters
+
+# Maximum distance between a keypoints and the cluster center to be considered 
+# as part of the cluster
+MAX_DISTANCE_FROM_CLUSTER = 2
 
 # qpik default precision and iterations (may sensibly change the results)
 QPIK_PRECISION = 0.001
