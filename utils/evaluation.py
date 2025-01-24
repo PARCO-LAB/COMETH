@@ -75,7 +75,7 @@ def assA(TP,totIDs):
                 
     
 def hota_par(grid, index, predicted_keypoints, predicted_ids, ground_truth_keypoints, ground_truth_ids, distance_threshold=0.5):
-    grid.append(hota(predicted_keypoints, predicted_ids, ground_truth_keypoints, ground_truth_ids, distance_threshold=0.5))
+    grid.append(hota(predicted_keypoints, predicted_ids, ground_truth_keypoints, ground_truth_ids, distance_threshold))
     
     
 def hota(predicted_keypoints, predicted_ids, ground_truth_keypoints, ground_truth_ids, distance_threshold=0.5):
