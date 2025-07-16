@@ -90,7 +90,7 @@ class DynamicSkeleton(ConstrainedSkeleton):
         # ----------------------------------------------------------------------
         # For IMUs
         # self.bodies_dict = {obj.getName(): obj for obj in self._nimble.getBodyNodes()}
-        
+        self.IMUs = []
         
         #-----------------------------------------------------------------------
         
@@ -280,7 +280,7 @@ class DynamicSkeleton(ConstrainedSkeleton):
         self._nimble.setBodyScales(scale.reshape(-1,1))
             
     # Inverse kinematics through gradient descend
-    def exact_scale(self,max_iterations=1000,precision=0.001):
+    def exact_scale(self,max_iterations=1000,precision=0.001,to_scale=True):
         older_loss = np.inf
         mask = ~np.isnan(super().to_numpy(self.kps)) 
         target = super().to_numpy(self.kps)[mask].reshape(1,-1).squeeze()
@@ -304,25 +304,26 @@ class DynamicSkeleton(ConstrainedSkeleton):
                 i+=1
             
             # Scaling setting
-            scale =  self._nimble.getBodyScales()
-            j = 0
-            while j < max_iterations:
-                if self.hip_correction:
-                    pos = self.correct(np.array(self._nimble.getJointWorldPositions(self.joints)))
-                else:
-                    pos = np.array(self._nimble.getJointWorldPositions(self.joints))
-                pos = pos[mask.reshape(1,-1).squeeze()]
-                d_loss_d__pos = 2 * (pos - target)
-                d_pos_d_scales = self._nimble.getJointWorldPositionsJacobianWrtBodyScales(self.joints)
-                d_pos_d_scales = d_pos_d_scales[mask.reshape(1,-1).squeeze(),:]
-                # d_pos_d_scales = d_pos_d_scales[mask.reshape(1,-1).squeeze(),0:72:3]
-                d_loss_d_scales = d_pos_d_scales.T @ d_loss_d__pos
-                # d_loss_d_scales = d_loss_d_scales.reshape((1,-1))
-                # d_loss_d_scales = np.array([d_loss_d_scales,d_loss_d_scales,d_loss_d_scales]).transpose()
-                # d_loss_d_scales = d_loss_d_scales.squeeze().reshape((-1,))
-                scale -= 0.001 * d_loss_d_scales
-                self._nimble.setBodyScales(scale)
-                j+=1
+            if to_scale:
+                scale =  self._nimble.getBodyScales()
+                j = 0
+                while j < max_iterations:
+                    if self.hip_correction:
+                        pos = self.correct(np.array(self._nimble.getJointWorldPositions(self.joints)))
+                    else:
+                        pos = np.array(self._nimble.getJointWorldPositions(self.joints))
+                    pos = pos[mask.reshape(1,-1).squeeze()]
+                    d_loss_d__pos = 2 * (pos - target)
+                    d_pos_d_scales = self._nimble.getJointWorldPositionsJacobianWrtBodyScales(self.joints)
+                    d_pos_d_scales = d_pos_d_scales[mask.reshape(1,-1).squeeze(),:]
+                    # d_pos_d_scales = d_pos_d_scales[mask.reshape(1,-1).squeeze(),0:72:3]
+                    d_loss_d_scales = d_pos_d_scales.T @ d_loss_d__pos
+                    # d_loss_d_scales = d_loss_d_scales.reshape((1,-1))
+                    # d_loss_d_scales = np.array([d_loss_d_scales,d_loss_d_scales,d_loss_d_scales]).transpose()
+                    # d_loss_d_scales = d_loss_d_scales.squeeze().reshape((-1,))
+                    scale -= 0.001 * d_loss_d_scales
+                    self._nimble.setBodyScales(scale)
+                    j+=1
 
             error = np.array(self._nimble.getJointWorldPositions(self.joints))[mask.reshape(1,-1).squeeze()] - target
             loss = np.inner(error, error)
