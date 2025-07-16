@@ -29,7 +29,7 @@ LHGT_OFFSET = np.array([-0.05,0,0])
 RAJAGOPAL_KPS =  ['RKnee', 'LWrist', 'RHip', 'RShoulder',  'LElbow', 'LHip', 'RElbow', 'RWrist', 'LKnee', 'LShoulder', 'RAnkle', 'LAnkle']
 RAJAGOPAL_JOINT_NAMES = [ 'walker_knee_r', 'radius_hand_l', 'hip_r', 'acromial_r', 'elbow_l', 'hip_l', 'elbow_r', 'radius_hand_r',  \
             'walker_knee_l', 'acromial_l', 'ankle_r', 'ankle_l']
-RAJAGOPAL_BODY_DICT = { 'pelvis' : 'LPelvis',
+RAJAGOPAL_BODIES_NAME_TRANSLATED = { 'pelvis' : 'LPelvis',
                         'femur_r' : 'RFemur',
                         'tibia_r' : 'RTibia',
                         'talus_r' : '',
@@ -54,7 +54,7 @@ RAJAGOPAL_BODY_DICT = { 'pelvis' : 'LPelvis',
 BSM_KPS =  ['RKnee', 'LWrist', 'RHip', 'RShoulder',  'LElbow', 'LHip', 'RElbow', 'RWrist', 'LKnee', 'LShoulder', 'RAnkle', 'LAnkle']
 BSM_JOINT_NAMES = [ 'walker_knee_r', 'wrist_l', 'hip_r', 'GlenoHumeral_r', 'elbow_l', 'hip_l', 'elbow_r', 'wrist_r',  \
             'walker_knee_l', 'GlenoHumeral_l', 'ankle_r', 'ankle_l']
-BSM_BODY_DICT = {  'pelvis':'Core', #LPelvis
+BSM_BODIES_NAME_TRANSLATED = {  'pelvis':'Core', #LPelvis
                     'femur_r':'RFemur',
                     'tibia_r':'RTibia',
                     'talus_r':'',

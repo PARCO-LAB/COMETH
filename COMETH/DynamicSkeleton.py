@@ -1,6 +1,7 @@
 from typing import Dict, Tuple
 from .Skeleton import Skeleton,ConstrainedSkeleton
-import COMETH.utils.parameters as COMETH_parameters
+import COMETH.parameters as COMETH_parameters
+from .parameters import *
 import nimblephysics as nimble
 import torch
 import numpy as np
@@ -79,12 +80,19 @@ class DynamicSkeleton(ConstrainedSkeleton):
         if  self.type == 'rajagopal':
             self.kps =  COMETH_parameters.RAJAGOPAL_KPS
             nimble_joint_names = COMETH_parameters.RAJAGOPAL_JOINT_NAMES
-            self.body_dict = COMETH_parameters.RAJAGOPAL_BODY_DICT
+            self.bodies_name_translated = COMETH_parameters.RAJAGOPAL_BODIES_NAME_TRANSLATED
         elif self.type == "BSM":
             self.kps =  COMETH_parameters.BSM_KPS
             nimble_joint_names = COMETH_parameters.BSM_JOINT_NAMES
-            self.body_dict = COMETH_parameters.BSM_BODY_DICT
+            self.bodies_name_translated = COMETH_parameters.BSM_BODIES_NAME_TRANSLATED
 
+        self.hip_correction = True  # manually adjust the hip offset (disable if ur using marker-based mocap)
+        # ----------------------------------------------------------------------
+        # For IMUs
+        # self.bodies_dict = {obj.getName(): obj for obj in self._nimble.getBodyNodes()}
+        
+        
+        #-----------------------------------------------------------------------
         
         # Turn the limits in radians
         self.q_l = COMETH_parameters.Q_LOWER_BOUND*np.pi/180
@@ -97,8 +105,8 @@ class DynamicSkeleton(ConstrainedSkeleton):
         self.neutral_position[0] = np.pi
         self.neutral_position[2] = -np.pi/2
         # Joints initial position
-        s_avg = (self.q_l + self.q_u) / 2
-        self.neutral_position[6:] = s_avg[6:]
+        s_avg = (self.q_l[6:] + self.q_u[6:]) / 2
+        self.neutral_position[6:] = s_avg
         
         # Set the velocity limits
         if max_velocity is None:
@@ -109,18 +117,22 @@ class DynamicSkeleton(ConstrainedSkeleton):
             self.qdot_l = np.zeros(self.q_u.shape)-max_velocity
             self.qdot_u = np.zeros(self.q_u.shape)+max_velocity
         
+        
         self.prob = None
         self.prev_mask = None
         self.kf = None
         self.joints = [self._nimble.getJoint(l) for l in nimble_joint_names]
-        pos = self.correct(np.array(self._nimble.getJointWorldPositions(self.joints)))
+        if self.hip_correction:
+            pos = self.correct(np.array(self._nimble.getJointWorldPositions(self.joints)))
+        else:
+            pos = np.array(self._nimble.getJointWorldPositions(self.joints))
         self.s12_base.load_from_numpy(pos.reshape(-1,3),self.kps)
         self.skeleton_from_nimble.load_from_BODY12(self.s12_base)
         
         # Save for faster qpIK
         self.qpIK_problems = {}
-        
         self.reset()
+        
         
     def reset_history(self):
         for b in self.bones_list:
@@ -152,17 +164,34 @@ class DynamicSkeleton(ConstrainedSkeleton):
     
     # Remove the joint position to place the corrected hip (closer to ASI and PSI)
     def correct(self,pos):
+        
+        # # Old version (some of the nimble's features are not working with torch >2 -> segfault)
+        # transform = self._nimble.getBodyNode('pelvis').getWorldTransform()
+        # pos[3*self.kps.index("RHip"):3*self.kps.index("RHip")+3] = transform.multiply(np.multiply(scale,self.RHip))
+        # pos[3*self.kps.index("LHip"):3*self.kps.index("LHip")+3] = transform.multiply(np.multiply(scale,self.LHip))
+        # transform = self._nimble.getBodyNode('scapula_l').getWorldTransform()
+        # pos[3*self.kps.index("LShoulder"):3*self.kps.index("LShoulder")+3] = transform.multiply(self.LShoulder)
+        # transform = self._nimble.getBodyNode('scapula_r').getWorldTransform()
+        # pos[3*self.kps.index("RShoulder"):3*self.kps.index("RShoulder")+3] = transform.multiply(self.RShoulder)
+        
         # Correct the pelvis joint
-        transform = self._nimble.getBodyNode('pelvis').getWorldTransform()
         scale = self._nimble.getBodyNode('pelvis').getScale()
-        pos[3*self.kps.index("RHip"):3*self.kps.index("RHip")+3] = transform.multiply(np.multiply(scale,self.RHip))
-        pos[3*self.kps.index("LHip"):3*self.kps.index("LHip")+3] = transform.multiply(np.multiply(scale,self.LHip))
+        transform = self._nimble.getBodyNode('pelvis').getWorldTransform().matrix()
+        point = np.hstack((np.multiply(scale,self.RHip),1))
+        pos[3*self.kps.index("RHip"):3*self.kps.index("RHip")+3] = transform.dot(point)[:-1]
+        
+        point = np.hstack((np.multiply(scale,self.LHip),1))
+        pos[3*self.kps.index("LHip"):3*self.kps.index("LHip")+3] = transform.dot(point)[:-1]
         
         # # Correct the scapula joints
-        transform = self._nimble.getBodyNode('scapula_l').getWorldTransform()
-        pos[3*self.kps.index("LShoulder"):3*self.kps.index("LShoulder")+3] = transform.multiply(self.LShoulder)
-        transform = self._nimble.getBodyNode('scapula_r').getWorldTransform()
-        pos[3*self.kps.index("RShoulder"):3*self.kps.index("RShoulder")+3] = transform.multiply(self.RShoulder)
+        transform = self._nimble.getBodyNode('scapula_l').getWorldTransform().matrix()
+        point = np.hstack((self.LShoulder,1))
+        pos[3*self.kps.index("LShoulder"):3*self.kps.index("LShoulder")+3] = transform.dot(point)[:-1]
+        
+        transform = self._nimble.getBodyNode('scapula_r').getWorldTransform().matrix()
+        point = np.hstack((self.RShoulder,1))
+        pos[3*self.kps.index("RShoulder"):3*self.kps.index("RShoulder")+3] = transform.dot(point)[:-1]
+        
         return pos
     
     # After the scaling process, if there are measurements too far from the 
@@ -172,7 +201,10 @@ class DynamicSkeleton(ConstrainedSkeleton):
         # Set the current 3D joint position of the skeleton if 
         # never gone trhough qpIK
         if np.isnan(self.keypoints_dict["Root"].pos[0]):
-            pos = self.correct(np.array(self._nimble.getJointWorldPositions(self.joints))).reshape(-1,3)
+            if self.hip_correction:
+                pos = self.correct(np.array(self._nimble.getJointWorldPositions(self.joints))).reshape(-1,3)
+            else:
+                pos = np.array(self._nimble.getJointWorldPositions(self.joints)).reshape(-1,3)
             self.s12_base.load_from_numpy(pos.reshape(-1,3),self.kps)
             self.load_from_BODY12(self.s12_base)
         
@@ -216,17 +248,17 @@ class DynamicSkeleton(ConstrainedSkeleton):
 
         h = np.nanmean(self.height_history) # Old height from previous frames
 
-        for i,b in enumerate(self.body_dict.keys()):
-            if self.body_dict[b] == 'Core' or self.body_dict[b] == '':
+        for i,b in enumerate(self.bodies_name_translated.keys()):
+            if self.bodies_name_translated[b] == 'Core' or self.bodies_name_translated[b] == '':
                 scale[i,:] = h / self.skeleton_from_nimble.estimate_height()
             else:
-                sc = np.nanmean(self.bones_dict[self.body_dict[b]].history) / self.skeleton_from_nimble.bones_dict[self.body_dict[b]].length
+                sc = np.nanmean(self.bones_dict[self.bodies_name_translated[b]].history) / self.skeleton_from_nimble.bones_dict[self.bodies_name_translated[b]].length
                 # If there is a symmetrical one
-                if self.body_dict[b] in self.symmetry:
+                if self.bodies_name_translated[b] in self.symmetry:
                     if np.isnan(sc):
-                        sc = np.nanmean(self.bones_dict[self.symmetry[self.body_dict[b]]].history) / self.skeleton_from_nimble.bones_dict[self.symmetry[self.body_dict[b]]].length
+                        sc = np.nanmean(self.bones_dict[self.symmetry[self.bodies_name_translated[b]]].history) / self.skeleton_from_nimble.bones_dict[self.symmetry[self.bodies_name_translated[b]]].length
                     else:
-                        sc_sym = np.nanmean(self.bones_dict[self.symmetry[self.body_dict[b]]].history) / self.skeleton_from_nimble.bones_dict[self.symmetry[self.body_dict[b]]].length
+                        sc_sym = np.nanmean(self.bones_dict[self.symmetry[self.bodies_name_translated[b]]].history) / self.skeleton_from_nimble.bones_dict[self.symmetry[self.bodies_name_translated[b]]].length
                         if np.abs(1-sc) > np.abs(1-sc_sym): 
                             sc = sc_sym
                 if not np.isnan(sc):
@@ -257,8 +289,10 @@ class DynamicSkeleton(ConstrainedSkeleton):
             q = self._nimble.getPositions()
             i=0
             while i < max_iterations:
-                pos = self.correct(np.array(self._nimble.getJointWorldPositions(self.joints)))
-                # pos = np.array(self._nimble.getJointWorldPositions(self.joints))
+                if self.hip_correction:
+                    pos = self.correct(np.array(self._nimble.getJointWorldPositions(self.joints)))
+                else:
+                    pos = np.array(self._nimble.getJointWorldPositions(self.joints))
                 pos = pos[mask.reshape(1,-1).squeeze()]
                 d_loss_d__pos = 2 * (pos - target)
                 d_pos_d_joint_angles = self._nimble.getJointWorldPositionsJacobianWrtJointPositions(self.joints)
@@ -273,8 +307,10 @@ class DynamicSkeleton(ConstrainedSkeleton):
             scale =  self._nimble.getBodyScales()
             j = 0
             while j < max_iterations:
-                pos = self.correct(np.array(self._nimble.getJointWorldPositions(self.joints)))
-                # pos = np.array(self._nimble.getJointWorldPositions(self.joints))
+                if self.hip_correction:
+                    pos = self.correct(np.array(self._nimble.getJointWorldPositions(self.joints)))
+                else:
+                    pos = np.array(self._nimble.getJointWorldPositions(self.joints))
                 pos = pos[mask.reshape(1,-1).squeeze()]
                 d_loss_d__pos = 2 * (pos - target)
                 d_pos_d_scales = self._nimble.getJointWorldPositionsJacobianWrtBodyScales(self.joints)
@@ -383,7 +419,10 @@ class DynamicSkeleton(ConstrainedSkeleton):
         while i < max_iterations:
             self.q.value = self._nimble.getPositions()
             # x is the position of the skeleton joints in the 3D, J the jacobian
-            x = self.correct(np.array(self._nimble.getJointWorldPositions(self.joints)))
+            if self.hip_correction:
+                x = self.correct(np.array(self._nimble.getJointWorldPositions(self.joints)))
+            else:
+                x = np.array(self._nimble.getJointWorldPositions(self.joints))
             J = self._nimble.getJointWorldPositionsJacobianWrtJointPositions(self.joints)
             # For each target, update the values of the jacobians and the starting position
             for j in range(len(self.x_targets)):
@@ -425,4 +464,7 @@ class DynamicSkeleton(ConstrainedSkeleton):
             self._nimble.setPositions(pos)
             
     def to_numpy(self):
-        return self.correct(np.array(self._nimble.getJointWorldPositions(self.joints)))
+        if self.hip_correction:
+            return self.correct(np.array(self._nimble.getJointWorldPositions(self.joints)))
+        else:
+            return np.array(self._nimble.getJointWorldPositions(self.joints))

@@ -2,11 +2,18 @@
 Biomechanical model of the human body
 
 ## Installation
-
+Create the virtual environment (runnning Python 3.7)
 ```
-pip install nimblephysics
-pip install cvxpy
+python3.7 -m virtualenv .venv
+source .venv/bin/activate
+```
 
+Install the dependences:
+```
+pip install torch==1.13.1
+pip install nimblephysics==0.10.36
+pip install cvxpy==1.2.1
+pip install numpy==1.21.6
 ```
 
 
