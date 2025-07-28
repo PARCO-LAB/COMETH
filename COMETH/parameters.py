@@ -1,4 +1,5 @@
 import numpy as np
+import sys
 
 # Maximum bone length that a incoming measuremenet must have w.r.t. the skeleton
 MAX_BONE_LENGTH_DIFFERENCE = 0.5   # meters

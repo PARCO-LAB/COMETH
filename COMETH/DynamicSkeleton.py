@@ -5,7 +5,7 @@ from .parameters import *
 import nimblephysics as nimble
 import torch
 import numpy as np
-import os
+import os, sys
 import cvxpy as cp
 current_path = os.path.dirname(os.path.abspath(__file__)) + "/"
 
@@ -146,6 +146,7 @@ class DynamicSkeleton(ConstrainedSkeleton):
         self._nimble.setPositions(self.neutral_position)
         self.reset_history()
         self.kf = None
+        # self._nimble.setBodyScales()
     
     def estimate_confidence(self):
         # Update each keypoint.confidence value
