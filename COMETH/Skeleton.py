@@ -2,7 +2,8 @@ import numpy as np
 import xml.etree.ElementTree as ET
 from .Bone import Bone
 from .Keypoint import Keypoint
-import COMETH.parameters as COMETH_parameters
+# import COMETH.parameters as COMETH_parameters
+from . import parameters as COMETH_parameters
 
 # from Skeleton.Joint import Joint
 

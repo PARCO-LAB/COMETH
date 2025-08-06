@@ -1,6 +1,7 @@
 from typing import Dict, Tuple
 from .Skeleton import Skeleton,ConstrainedSkeleton
-import COMETH.parameters as COMETH_parameters
+# import COMETH.parameters as COMETH_parameters
+from . import parameters as COMETH_parameters
 from .parameters import *
 import nimblephysics as nimble
 import torch
