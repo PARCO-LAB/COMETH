@@ -14,6 +14,8 @@ pip install torch==1.13.1
 pip install nimblephysics==0.10.36
 pip install cvxpy==1.2.1
 pip install numpy==1.21.6
+pip install pandas
+pip install matplotlib
 ```
 
 
