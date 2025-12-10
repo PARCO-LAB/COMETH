@@ -30,8 +30,8 @@ class MetricManager:
         assert(n_frames <= len(self.gt))
 
     
-        errors = np.mean(np.abs((np.array(self.calculated)[:,joint_idx].reshape(n_frames,-1)-np.array(self.gt[:n_frames])[:,joint_idx].reshape(n_frames,-1))), axis = 1 )
-        print(errors)
+        errors = np.abs((np.array(self.calculated)[:,joint_idx].reshape(n_frames,-1)-np.array(self.gt[:n_frames])[:,joint_idx].reshape(n_frames,-1)))
+        
         #return np.mean(errors[:,[joint_idx]], axis=1)
         return errors
     
@@ -40,6 +40,7 @@ class MetricManager:
         Mean per joint positional error (over only interest joints)
         """
         #wrist + glenohumeral + elbow
+        #wrist_l + glenohumeral_r + elbow_l +elbow_r + wrist_r + GlenoHumeral_l'
         joint_idx = [1,3,4,6,7,9]
 
         pos = self.s._nimble.getPositions()
@@ -67,6 +68,7 @@ class MetricManager:
         Mean per joint accelerational error (over only inteset joints)
         """
         #wrist + glenohumeral + elbow
+        #wrist_l + glenohumeral_r + elbow_l +elbow_r + wrist_r + GlenoHumeral_l'
         joint_idx = [1,3,4,6,7,9]
         pos = self.s._nimble.getPositions()
 
@@ -93,6 +95,7 @@ class MetricManager:
     
     def p_mpjpe(self):
         #wrist + glenohumeral + elbow
+        #wrist_l + glenohumeral_r + elbow_l +elbow_r + wrist_l
         joint_idx = [1,3,4,6,7,9]
         pos = self.s._nimble.getPositions()
 
@@ -156,7 +159,7 @@ class MetricManager:
 
         return errors
 
-    def save_metrics(self, metrics_list: list = ['mae', 'mpjpe'], dir: str = './metrics'):
+    def save_metrics(self, metrics_list: list = ['mae', 'mpjpe', 'mpjae', 'p_mpjpe'], dir: str = './metrics'):
 
         if not os.path.exists(dir):
             os.mkdir(dir)
