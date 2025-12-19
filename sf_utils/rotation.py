@@ -312,3 +312,7 @@ def apply_T(T: np.array, v: np.array):
     v_transformed = np.einsum('bij,bj->bi', T, v_h)
     
     return v_transformed[:, :3].reshape(-1,3)
+
+def quat_vectorfirst_to_scalarfirst(q):
+    q = np.asarray(q)
+    return np.concatenate([q[..., 3:4], q[..., :3]], axis=-1)

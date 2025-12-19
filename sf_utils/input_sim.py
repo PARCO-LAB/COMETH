@@ -82,17 +82,17 @@ class ImuData:
 #TODO: more testing
 def camera_simulation(body_pos, camera_pos, fov_h = 1.78024, fov_v = 0.994838, R_cam = np.eye(3)):
     """
-    Function use to simulate an egocentric camera behavior in identifing human keypoint.
+    Function use to simulate an egocentric camera behavior in identifing human keypoint. Camera considerata con lo z in fuori.
     ## Args
     - body_pos : human body keypoints 3d absolute positions as a matrix (N,3)
     - camera_pos : camera absolute 3D position as (3)
     - fov_h, fov_v : angular width of camera view in rad (horizontal and vertical)
-    - R_cam : orientation of camera as a (3,3) Rotation matrix (world -> camera)
+    - R_cam : orientation of camera as a (3,3) Rotation matrix (camera --> world)
     ## Return
     - The body_pos array, with NaN if the joint is not visible
     """
     points_rel = body_pos - camera_pos # Nx3
-    points_cam = points_rel @ R_cam.T  # Nx3
+    points_cam = points_rel @ R_cam  # Nx3
 
     x = points_cam[:, 0]
     y = points_cam[:, 1]
@@ -107,6 +107,9 @@ def camera_simulation(body_pos, camera_pos, fov_h = 1.78024, fov_v = 0.994838, R
     in_fov_v = np.abs(theta_v) <= fov_v / 2
 
     visible = in_front & in_fov_h & in_fov_v
+    
+    if not np.any(visible):
+        return None
 
     # Nan for non-visible joints
     points_filtered = body_pos.copy().astype(float)
