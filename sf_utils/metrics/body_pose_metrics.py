@@ -159,7 +159,7 @@ class MetricManager:
 
         return errors
 
-    def save_metrics(self, metrics_list: list = ['mae', 'mpjpe', 'mpjae', 'p_mpjpe'], dir: str = './metrics'):
+    def save_metrics(self, metrics_list: list = ['mpjpe', 'mpjae', 'p_mpjpe'], dir: str = './metrics'):
 
         if not os.path.exists(dir):
             os.mkdir(dir)
