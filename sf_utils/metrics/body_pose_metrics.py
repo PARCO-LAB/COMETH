@@ -24,7 +24,7 @@ class MetricManager:
         Mean angular error over interest joints. both input shape (n_frames, n_joint, 1)
         """
         #lumbar + thorax + scapula + shoulder + elbow + wrist
-        joint_idx = list(range(20,26)) + list(range(29,49))
+        joint_idx = list(range(20,26)) + list(range(29,37)) + list(range(39,47))
         
         n_frames = len(self.calculated)
         assert(n_frames <= len(self.gt))
@@ -159,7 +159,7 @@ class MetricManager:
 
         return errors
 
-    def save_metrics(self, metrics_list: list = ['mae', 'mpjpe', 'mpjae', 'p_mpjpe'], dir: str = './metrics'):
+    def save_metrics(self, metrics_list: list = ['mpjpe', 'mpjae', 'p_mpjpe'], dir: str = './metrics'):
 
         if not os.path.exists(dir):
             os.mkdir(dir)
@@ -177,6 +177,31 @@ class MetricManager:
 
             df = pd.DataFrame(errors)
             df.to_csv(os.path.join(dir, metric))
+
+        df = pd.DataFrame(np.array(self.gt).reshape(-1,49))
+        df.to_csv(os.path.join(dir, 'gt'))
+        df = pd.DataFrame(np.array(self.calculated).reshape(-1,49))
+        df.to_csv(os.path.join(dir, 'calc'))
+
+        pos = self.s._nimble.getPositions()
+
+        calc_pos = []
+        gt_pos = []
+        n_frames = len(self.calculated)
+        for idx in range(n_frames):
+            self.s._nimble.setPositions(self.calculated[idx])
+            calc_pos.append(self.s._nimble.getJointWorldPositions(self.s.joints))
+            self.s._nimble.setPositions(self.gt[idx])
+            gt_pos.append(self.s._nimble.getJointWorldPositions(self.s.joints))
+
+        self.s._nimble.setPositions(pos)
+
+        df = pd.DataFrame(np.array(gt_pos).reshape(-1,36)) #reshape(-1,12)
+        df.to_csv(os.path.join(dir, 'gt_pos'))
+        df = pd.DataFrame(np.array(calc_pos).reshape(-1,36))
+        df.to_csv(os.path.join(dir, 'calc_pos'))
+        
+        
 
 
 #TODO: testing and debugging
