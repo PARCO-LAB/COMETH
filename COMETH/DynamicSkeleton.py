@@ -129,7 +129,7 @@ class DynamicSkeleton(ConstrainedSkeleton):
             pos = np.array(self._nimble.getJointWorldPositions(self.joints))
         self.s12_base.load_from_numpy(pos.reshape(-1,3),self.kps)
         self.skeleton_from_nimble.load_from_BODY12(self.s12_base)
-        
+    
         # Save for faster qpIK
         self.qpIK_problems = {}
         self.reset()

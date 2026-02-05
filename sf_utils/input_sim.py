@@ -78,11 +78,9 @@ class ImuData:
         
         return np.array(ori)
     
-
-#TODO: more testing
 def camera_simulation(body_pos, camera_pos, fov_h = 1.78024, fov_v = 0.994838, R_cam = np.eye(3)):
     """
-    Function use to simulate an egocentric camera behavior in identifing human keypoint. Camera considerata con lo z in fuori.
+    Function use to simulate an egocentric camera behavior in identifing human keypoint. 
     ## Args
     - body_pos : human body keypoints 3d absolute positions as a matrix (N,3)
     - camera_pos : camera absolute 3D position as (3)
@@ -100,8 +98,8 @@ def camera_simulation(body_pos, camera_pos, fov_h = 1.78024, fov_v = 0.994838, R
 
     in_front = z > 0
 
-    theta_h = np.arctan2(x, z)
-    theta_v = np.arctan2(y, z)
+    theta_h = np.arctan2(y, z)
+    theta_v = np.arctan2(x, z)
 
     in_fov_h = np.abs(theta_h) <= fov_h / 2
     in_fov_v = np.abs(theta_v) <= fov_v / 2
@@ -111,8 +109,43 @@ def camera_simulation(body_pos, camera_pos, fov_h = 1.78024, fov_v = 0.994838, R
     if not np.any(visible):
         return None
 
+    
     # Nan for non-visible joints
     points_filtered = body_pos.copy().astype(float)
     points_filtered[~visible] = np.nan
 
     return points_filtered
+
+def wrist_camera_simulation(wrist_pos, camera_pos, fov_h = 1.78024, fov_v = 0.994838, R_cam = np.eye(3)):
+    """
+    Function use to simulate an egocentric camera behavior in identifing the wrists keypoints.
+    ## Args
+    - wrist_pos : a (2,3) np.array with the wrists 3D positions.
+    - camera_pos : camera absolute 3D position as (3)
+    - fov_h, fov_v : angular width of camera view in rad (horizontal and vertical)
+    - R_cam : orientation of camera as a (3,3) Rotation matrix (camera --> world)
+    ## Return
+    -  the two separeted positions. If wrist not visibile = NaN
+    """
+    points_rel = wrist_pos - camera_pos # Nx3 pos relativa tra camera e giunti nel world
+    points_cam = points_rel @ R_cam  # Nx3 riporto la pos relativa nel sistema camera
+
+    x = points_cam[:, 0]
+    y = points_cam[:, 1]
+    z = points_cam[:, 2]
+
+    in_front = z > 0
+
+    theta_h = np.arctan2(y, z)
+    theta_v = np.arctan2(x, z)
+
+    in_fov_h = np.abs(theta_h) <= fov_h / 2
+    in_fov_v = np.abs(theta_v) <= fov_v / 2
+
+    visible = in_front & in_fov_h & in_fov_v
+
+    # Nan for non-visible joints
+    points_filtered = wrist_pos.copy().astype(float)
+    points_filtered[~visible] = np.nan
+
+    return points_filtered[0,:].reshape(3), points_filtered[1,:].reshape(3)
