@@ -1,5 +1,5 @@
 import numpy as np
-from dh_model import so3_log, skew
+from sf_utils.rotation import so3_log, skew
 
 class DualArmEKF:
     def __init__(self, arms, Q, R_dict, initial_state = None):

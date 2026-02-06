@@ -471,3 +471,59 @@ class DynamicSkeleton(ConstrainedSkeleton):
             return self.correct(np.array(self._nimble.getJointWorldPositions(self.joints)))
         else:
             return np.array(self._nimble.getJointWorldPositions(self.joints))
+
+    def getImuWorldOrient(self):
+        """ 
+        Returns the IMUs transform matrix in world frame as a numpy array of size (Nx4x4) with N = number of IMUs.
+        """
+        rot = []
+        for imu in self.IMUs:
+            T_b_w = imu[0].getWorldTransform().matrix()
+            T_i_b = imu[1].matrix()
+
+            T_i_w = T_b_w @ T_i_b
+
+            rot.append(T_i_w)
+        
+        return np.array(rot)
+
+    def getImuWorldPosition(self):
+        """ 
+        Returns the IMUs positions in world frame as a numpy array of size (Nx3) with N = number of IMUs.
+        """
+        pos = []
+        for imu in self.IMUs:
+            T_b_w = imu[0].getWorldTransform().matrix()
+            T_i_b = imu[1].matrix()
+
+            T_i_w = T_b_w @ T_i_b
+            pos.append(T_i_w[:3,3].reshape(3))
+            
+        return np.array(pos)
+
+    def correctImuOrient(self, R_corr):
+        """ Apply to previous IMUs rotation a new rotation in nimble model. 
+        R_corr is (Nx3x3) numpy array with N = number of IMUs
+        """
+        assert len(R_corr)==len(self.IMUs)
+
+        for i, imu in enumerate(self.IMUs):
+            T_i_b = imu[1].matrix()
+            T = np.eye(4)
+            T[:3,:3]= R_corr[i]
+
+            T_corr = T@T_i_b
+
+            self.IMUs[i] = (imu[0],nimble.math.Isometry3(T_corr[:3,:3], T_corr[:3,3]))
+
+    def setImuWorldTransform(self, T_i_w):
+        """ Set new rotation for each IMU in the nimble model.
+        T_i_w is the transformation matrix in world frame with shape (N,4,4) with N = number of IMUs.
+        Only the rotation of transform matrix is applied.
+        """
+        
+        for i, imu in enumerate(self.IMUs):
+            T_b_w = imu[0].getWorldTransform().matrix()
+            T_old = imu[1].matrix()
+            T_i_b = np.linalg.inv(T_b_w)@T_i_w[i]
+            self.IMUs[i] = (imu[0],nimble.math.Isometry3(T_i_b[:3,:3], T_old[:3,3]))

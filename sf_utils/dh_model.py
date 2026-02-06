@@ -1,26 +1,6 @@
 import numpy as np
 import nimblephysics as nimble
 
-# TODO: transfer this into rotation file
-def skew(v):
-    return np.array([[0, -v[2], v[1]],
-                     [v[2], 0, -v[0]],
-                     [-v[1], v[0], 0]])
-
-# TODO: transfer this into roation file
-def so3_log(R):
-    tr = np.trace(R)
-    cos_theta = (tr - 1) / 2.0
-    cos_theta = np.clip(cos_theta, -1.0, 1.0)
-    theta = np.arccos(cos_theta)
-    if theta < 1e-12:
-        return np.zeros(3)
-    return (theta / (2 * np.sin(theta))) * np.array([
-        R[2, 1] - R[1, 2],
-        R[0, 2] - R[2, 0],
-        R[1, 0] - R[0, 1]
-    ])
-
 def mdh_transform(theta, a, alpha, d):
     """ 
      Compute modified Denavit-Hartenberg T matrix
@@ -98,7 +78,7 @@ class ArmModel:
 
         return J_all
 
-    def inverse_kinematics(self, target, initial_guess=None, max_iterations=1000, precision=0.0001):
+    def inverse_kinematics(self, target, initial_guess=None, max_iterations=100, precision=0.0001):
         """ 
          Compute IK of the arm model throught least square error method
         """

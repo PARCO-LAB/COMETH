@@ -5,67 +5,7 @@ import pandas as pd
 
 from COMETH import Skeleton, DynamicSkeleton
 
-#TODO: transfer inside DynamicSkeleton class
-def getImuWorldOrient(s):
-    """ 
-     Returns the IMUs transform matrix in world frame as a numpy array of size (Nx4x4) with N = number of IMUs.
-    """
-    rot = []
-    for imu in s.IMUs:
-        T_b_w = imu[0].getWorldTransform().matrix()
-        T_i_b = imu[1].matrix()
-
-        T_i_w = T_b_w @ T_i_b
-
-        rot.append(T_i_w)
-    
-    return np.array(rot)
-
-#TODO: transfer inside DynamicSkeleton class
-def getImuWorldPosition(s):
-    """ 
-     Returns the IMUs positions in world frame as a numpy array of size (Nx3) with N = number of IMUs.
-    """
-    pos = []
-    for imu in s.IMUs:
-        T_b_w = imu[0].getWorldTransform().matrix()
-        T_i_b = imu[1].matrix()
-
-        T_i_w = T_b_w @ T_i_b
-        pos.append(T_i_w[:3,3].reshape(3))
-        
-    return np.array(pos)
-
-#TODO: transfer inside DynamicSkeleton class
-def correctImuOrient(s, R_corr):
-    """ Apply to previous IMUs rotation a new rotation in nimble model. 
-    R_corr is (Nx3x3) numpy array with N = number of IMUs
-    """
-    assert len(R_corr)==len(s.IMUs)
-
-    for i, imu in enumerate(s.IMUs):
-        T_i_b = imu[1].matrix()
-        T = np.eye(4)
-        T[:3,:3]= R_corr[i]
-
-        T_corr = T@T_i_b
-
-        s.IMUs[i] = (imu[0],nimble.math.Isometry3(T_corr[:3,:3], T_corr[:3,3]))
-
-#TODO: transfer inside DynamicSkeleton class
-def setImuWorldTransform(s, T_i_w):
-    """ Set new rotation for each IMU in the nimble model.
-      T_i_w is the transformation matrix in world frame with shape (N,4,4) with N = number of IMUs.
-      Only the rotation of transform matrix is applied.
-    """
-    
-    for i, imu in enumerate(s.IMUs):
-        T_b_w = imu[0].getWorldTransform().matrix()
-        T_old = imu[1].matrix()
-        T_i_b = np.linalg.inv(T_b_w)@T_i_w[i]
-        s.IMUs[i] = (imu[0],nimble.math.Isometry3(T_i_b[:3,:3], T_old[:3,3]))
-
-def create_body_model(action_name: str, vicon_path: str = './totalcapture/vicon', body_node_list: list = ['humerus_r','humerus_l',"thorax"]):
+def create_body_model(action_name: str, vicon_path: str = './totalcapture/vicon', body_node_list: list = ['humerus_r','humerus_l',"thorax"], comp_model:bool = False):
     """ 
     This function initializes the DynamicSkeleton body model with the vicon data of the given subject
     Parameters:
@@ -88,6 +28,12 @@ def create_body_model(action_name: str, vicon_path: str = './totalcapture/vicon'
     # Read data from CSV
     markers = pd.read_csv(path)
     # Build the markers dataframe with only the subset we are interested in
+    Rz = np.array([
+        [1,0,0],
+        [0,1,0],
+        [0,0,1]
+    ])
+
     Rx = np.array([
         [1,0,0 ],
         [0,0,-1 ],
@@ -110,29 +56,53 @@ def create_body_model(action_name: str, vicon_path: str = './totalcapture/vicon'
         'LAnkle': 'left_ankle'
     }
 
+    if not comp_model:
     # Offset deducted from TotalCapture videos
-    offset_dict = {
-        'ulna_r': [0,0,0],
-        'ulna_l': [0,0,0],
-        'humerus_r': [-0.04,-0.15,0],
-        'humerus_l': [-0.04,-0.15,0],
-        'thorax': [0.1, -0.1, 0.05]
-        #TODO: complete with other possible accelerometer
-    }
+        offset_dict = {
+            'ulna_r': [0,0,0],
+            'ulna_l': [0,0,0],
+            'humerus_r': [-0.04,-0.15,0],
+            'humerus_l': [-0.04,-0.15,0],
+            'thorax': [0.1, -0.1, 0.05]
+            #TODO: complete with other possible accelerometer
+        }
 
-    rotation_dict = {
-        'humerus_r': np.array([[0,0,-1],[1,0,0],[0,-1,0]]),
-        'humerus_l': np.array([[0,0,-1],[1,0,0],[0,-1,0]]),
-        'thorax': np.array([[0,0,1],[1,0,0],[0,1,0]])
-        #TODO: complete with other possible accelerometer
-    }
+        rotation_dict = {
+            'humerus_r': np.array([[0,0,-1],[1,0,0],[0,-1,0]]),
+            'humerus_l': np.array([[0,0,-1],[1,0,0],[0,-1,0]]),
+            'thorax': np.array([[0,0,1],[1,0,0],[0,1,0]])
+            #TODO: complete with other possible accelerometer
+        }
+    else:
+        offset_dict = {
+            'ulna_r': [0.0,0,0],
+            'ulna_l': [0.0,0,0],
+            'humerus_r': [0.0,0,0],#[-0.04,-0.15,0],
+            'humerus_l': [0.0,0,0],#[-0.04,-0.15,0],
+            'thorax': [0.0,0,0],#[0.1, -0.1, 0.05]
+            'hand_r': [0,0,0],
+            'hand_l': [0,0,0],
+            'camera': [0.1,-0.1,0.05]
+        }
+
+        rotation_dict = {
+            'ulna_r': np.eye(3),
+            'ulna_l': np.eye(3),
+            'humerus_r': np.eye(3),
+            'humerus_l': np.eye(3),
+            'thorax': np.eye(3),
+            'hand_r': np.eye(3),
+            'hand_l': np.eye(3),
+            'camera': np.eye(3)
+        }
+
 
     # Calculating target position for first frame of the sequence
     row = []
     for kp in markers_dict.keys():
         p = np.array([markers[markers_dict[kp]+"_x"][0],markers[markers_dict[kp]+"_y"][0],markers[markers_dict[kp]+"_z"][0]])
         # rotate the 3d point -90 on the x axis (from y up to z up)
-        p_n = Rx.dot(p)
+        p_n = Rz.dot(Rx.dot(p))
         row += p_n.tolist()
     target = np.array(row)
 
@@ -149,7 +119,10 @@ def create_body_model(action_name: str, vicon_path: str = './totalcapture/vicon'
     # Creating sensors list and adding it to nimble model
     sensors: List[Tuple[nimble.dynamics.BodyNode, nimble.math.Isometry3]] = []
     for node in body_node_list:
-        body_node: nimble.dynamics.BodyNode = s._nimble.getBodyNode(node)
+        if node == 'camera':
+            body_node: nimble.dynamics.BodyNode = s._nimble.getBodyNode('thorax')
+        else:
+            body_node: nimble.dynamics.BodyNode = s._nimble.getBodyNode(node)
         translation: np.ndarray = np.array(offset_dict[node])
         rotation: np.ndarray = np.array(rotation_dict[node])
         watch_offset: nimble.math.Isometry3 = nimble.math.Isometry3(rotation, translation)
@@ -175,6 +148,12 @@ def compute_gt(action_name: str, vicon_path: str, comp_model: bool = False):
     markers = pd.read_csv(path)
 
     # Build the markers dataframe with only the subset we are interested in
+    Rz = np.array([
+        [1,0,0],
+        [0,1,0],
+        [0,0,1]
+    ])
+
     Rx = np.array([
         [1,0,0 ],
         [0,0,-1 ],
@@ -190,7 +169,7 @@ def compute_gt(action_name: str, vicon_path: str, comp_model: bool = False):
         for kp in markers_list:
             p = np.array([markers[kp+"_x"][i],markers[kp+"_y"][i],markers[kp+"_z"][i]])
             # rotate the 3d point -90 on the x axis (from y up to z up)
-            p_n = Rx.dot(p)
+            p_n = Rz.dot(Rx.dot(p))
             # print(p,p_n)
             row += p_n.tolist()
         target.append(np.array(row).reshape(-1,3))

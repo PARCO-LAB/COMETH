@@ -316,3 +316,21 @@ def apply_T(T: np.array, v: np.array):
 def quat_vectorfirst_to_scalarfirst(q):
     q = np.asarray(q)
     return np.concatenate([q[..., 3:4], q[..., :3]], axis=-1)
+
+def skew(v):
+    return np.array([[0, -v[2], v[1]],
+                     [v[2], 0, -v[0]],
+                     [-v[1], v[0], 0]])
+
+def so3_log(R):
+    tr = np.trace(R)
+    cos_theta = (tr - 1) / 2.0
+    cos_theta = np.clip(cos_theta, -1.0, 1.0)
+    theta = np.arccos(cos_theta)
+    if theta < 1e-12:
+        return np.zeros(3)
+    return (theta / (2 * np.sin(theta))) * np.array([
+        R[2, 1] - R[1, 2],
+        R[0, 2] - R[2, 0],
+        R[1, 0] - R[0, 1]
+    ])

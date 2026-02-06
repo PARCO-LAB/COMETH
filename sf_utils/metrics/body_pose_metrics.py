@@ -60,9 +60,9 @@ class MetricManager:
         
         calc_pos = np.array(calc_pos).reshape(n_frames,-1,3)
 
-        if not len(self.target)==len(calc):
-            gt = self.target[:len(calc)]
-            offset = self.offset[:len(calc)]
+        if not len(self.target)==len(calc_pos):
+            gt = self.target[:len(calc_pos)]
+            offset = self.offset[:len(calc_pos)]
         else:
             gt = self.target
             offset = self.offset
@@ -70,7 +70,7 @@ class MetricManager:
 
         calc_pos = calc_pos + offset
         mpjpe = np.linalg.norm(calc_pos[:,[3,6,7,9,4,1],:]-gt[:,[3,6,7,9,4,1],:], axis=-1)
-        calc = calc.reshape(-1,36)
+        calc_pos = calc_pos.reshape(-1,36)
         gt = gt.reshape(-1,36)
 
         return mpjpe, calc_pos, gt, offset
@@ -131,7 +131,8 @@ def save_metrics_comparative(seq_dir, pos_estimation, marker, offset):
         11:'ankle_l'
     }
 
-
+    if not os.path.exists(dir):
+            os.mkdir(dir)
     
     calc = np.array(pos_estimation).reshape(-1,6,3).copy()
     if not len(marker)==len(calc):
