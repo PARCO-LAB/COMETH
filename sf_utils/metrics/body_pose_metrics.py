@@ -131,8 +131,8 @@ def save_metrics_comparative(seq_dir, pos_estimation, marker, offset):
         11:'ankle_l'
     }
 
-    if not os.path.exists(dir):
-            os.mkdir(dir)
+    if not os.path.exists(seq_dir):
+            os.mkdir(seq_dir)
     
     calc = np.array(pos_estimation).reshape(-1,6,3).copy()
     if not len(marker)==len(calc):

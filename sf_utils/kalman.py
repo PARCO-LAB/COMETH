@@ -227,7 +227,7 @@ class DualArmEKF:
         I = np.eye(len(self.state))
         self.P = (I - Kr @ Hr) @ self.P @ (I - Kr @ Hr).T + Kr @ self.R['qr_rot'] @ Kr.T
 
-    def _numeric_jacobian(self, func, x, active_idx=None, eps=None):
+    def _numeric_jacobian(self, func, x, active_idx=None, eps=1e-20):
         """
         Compute numeric jacobian of the 'func' function with respect to vector x.
         - active_idx: array/list of index to derivate. If None, all index considerated. Non-active columns are keep to zero.
