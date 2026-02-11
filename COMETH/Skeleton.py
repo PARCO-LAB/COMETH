@@ -2,14 +2,13 @@ import numpy as np
 import xml.etree.ElementTree as ET
 from .Bone import Bone
 from .Keypoint import Keypoint
-# import COMETH.parameters as COMETH_parameters
 from . import parameters as COMETH_parameters
+import os
 
-# from Skeleton.Joint import Joint
-
+current_path = os.path.dirname(os.path.abspath(__file__)) + "/"
 class Skeleton():
     
-    def __init__(self,config, name = None):
+    def __init__(self,config=current_path+'BODY12.xml', name = None):
         start = ET.parse(config).getroot()
         if start.tag != "skeleton":
             raise Exception("skeleton not found in xml")

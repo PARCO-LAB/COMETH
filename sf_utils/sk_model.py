@@ -5,7 +5,7 @@ import pandas as pd
 
 from COMETH import Skeleton, DynamicSkeleton
 
-def create_body_model(action_name: str, vicon_path: str = './totalcapture/vicon', body_node_list: list = ['humerus_r','humerus_l',"thorax"], comp_model:bool = False):
+def create_body_model(vicon_path: str = './totalcapture/vicon', action_name: str = None , body_node_list: list = ['humerus_r','humerus_l',"thorax"], comp_model:bool = False):
     """ 
     This function initializes the DynamicSkeleton body model with the vicon data of the given subject
     Parameters:
@@ -14,15 +14,19 @@ def create_body_model(action_name: str, vicon_path: str = './totalcapture/vicon'
     Returns:
         The DynamicSkeleton
     """
-
-    subj = action_name.split('/')[-2]
-    action = action_name.split('/')[-1]
-    path = os.path.join(vicon_path,action_name,'vicon_'+subj+'_'+action+'.csv')
+    if action_name is not None:
+        subj = action_name.split('/')[-2]
+        action = action_name.split('/')[-1]
+        path = os.path.join(vicon_path,action_name,'vicon_'+subj+'_'+action+'.csv')
+    else:
+        path = vicon_path
 
     # Build skeleton
-    s12 = Skeleton('BODY12.xml')
+    # s12 = Skeleton('../COMETH/BODY12.xml')
+    s12 = Skeleton()
     # BSM
-    s = DynamicSkeleton(config='BODY15_constrained_3D.xml',osim_file=os.path.abspath('COMETH/bsm_upper.osim'))
+    # s = DynamicSkeleton(config='BODY15_constrained_3D.xml',osim_file=os.path.abspath('COMETH/bsm_upper.osim'))
+    s = DynamicSkeleton()
     s.hip_correction = False
 
     # Read data from CSV
@@ -133,15 +137,19 @@ def create_body_model(action_name: str, vicon_path: str = './totalcapture/vicon'
 
     return s
 
-def compute_gt(action_name: str, vicon_path: str, comp_model: bool = False):
-    subj = action_name.split('/')[-2]
-    action = action_name.split('/')[-1]
-    path = os.path.join(vicon_path,action_name,'vicon_'+subj+'_'+action+'.csv')
+def compute_gt(vicon_path: str, action_name: str = None,  comp_model: bool = False):
+    
+    if action_name is not None:
+        subj = action_name.split('/')[-2]
+        action = action_name.split('/')[-1]
+        path = os.path.join(vicon_path,action_name,'vicon_'+subj+'_'+action+'.csv')
+    else:
+        path = vicon_path
 
     # Build skeleton
-    s12 = Skeleton('BODY12.xml')
+    s12 = Skeleton()
     # BSM
-    s = DynamicSkeleton(config='BODY15_constrained_3D.xml',osim_file=os.path.abspath('COMETH/bsm_upper.osim'))
+    s = DynamicSkeleton()
     s.hip_correction = False
 
     # Read data from CSV

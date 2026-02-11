@@ -5,18 +5,24 @@ import os
 
 #NOTE: This class is designed to navigate inside TotalCapture directory structure and files
 class ImuData:
-    def __init__(self, path: str):
+    def __init__(self, path: str = None, calibation_path: str = None):
         """ 
         Parameters
          path: str root directory of the imu sequence
         """
-        self.file_path = path
-        self.action = path.split('_')[-1].split('.')[0]
-        self.subj = path.split('_')[-2]
-        self.root_path, self.file_name = os.path.split(path)
-        self.cal_file = self.subj + '_' + self.action + '_calibration.json'
-        self.acc_read = None
-        
+        if calibation_path is None:
+            self.file_path = path
+            self.action = path.split('_')[-1].split('.')[0]
+            self.subj = path.split('_')[-2]
+            self.root_path, self.file_name = os.path.split(path)
+            self.cal_file = self.subj + '_' + self.action + '_calibration.json'
+            self.acc_read = None
+        else:
+            self.file_path = path
+            self.root_path, self.file_name = os.path.split(path)
+            self.cal_file = calibation_path
+            self.acc_read = None
+
     def read_imu_csv(self):
         """ 
         This function return a dict of numpy matrices (n_t x n_comp) representing the imu data of the given .csv.
@@ -26,8 +32,12 @@ class ImuData:
         if data is None:
             return
 
-        with open(os.path.join(self.root_path, self.cal_file), 'r') as file:
-            calibration = json.load(file)
+        if os.path.isfile(os.path.join(self.root_path, self.cal_file)):
+            with open(os.path.join(self.root_path, self.cal_file), 'r') as file:
+                calibration = json.load(file)
+        else:
+            with open(self.cal_file, 'r') as file:
+                calibration = json.load(file)
 
         indexes_name = data.columns.values
 
