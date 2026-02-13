@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<skeleton format="COCO" dim="3">
+    <keypoints>
+        <keypoint name="LHip">
+            
+            <keypoint name="LKnee" bone="LFemur" isfixed="False">
+                <keypoint name="LAnkle" bone="LTibia" isfixed="False">
+                </keypoint>
+            </keypoint>
+            
+            <keypoint name="RHip" bone="Pelvis" isfixed="False">
+                <keypoint name="RKnee" bone="RFemur" isfixed="False">
+                    <keypoint name="RAnkle" bone="RTibia" isfixed="False">
+                    </keypoint>
+                </keypoint>
+            </keypoint>
+            
+            <keypoint name="LShoulder" bone="LTrunk" isfixed="False">
+                
+                <keypoint name="LElbow" bone="LUmerus" isfixed="False">
+                    <keypoint name="LWrist" bone="LRadius" isfixed="False">
+                    </keypoint>
+                </keypoint>
+                
+                <keypoint name="RShoulder" bone="Shoulders" isfixed="False">
+                    <keypoint name="RElbow" bone="RUmerus" isfixed="False">
+                        <keypoint name="RWrist" bone="RRadius" isfixed="False">
+                        </keypoint>
+                    </keypoint>
+                </keypoint>
+                
+                <keypoint name="Nose" bone="Neck" isfixed="False">
+                    <keypoint name="LEye" bone="LFace" isfixed="False">
+                        <keypoint name="LEar" bone="LHead" isfixed="False">
+                        </keypoint>
+                    </keypoint>
+                    
+                    <keypoint name="REye" bone="RFace" isfixed="False">
+                        <keypoint name="REar" bone="RHead" isfixed="False">
+                        </keypoint>
+                    </keypoint>
+                </keypoint>
+                
+            </keypoint>       
+        </keypoint>
+    </keypoints>
+    <order>
+        <keypoint name="Nose"></keypoint>
+        <keypoint name="LEye"></keypoint>
+        <keypoint name="REye"></keypoint>
+        <keypoint name="LEar"></keypoint>
+        <keypoint name="REar"></keypoint>
+        <keypoint name="LShoulder"></keypoint>
+        <keypoint name="RShoulder"></keypoint>
+        <keypoint name="LElbow"></keypoint>
+        <keypoint name="RElbow"></keypoint>
+        <keypoint name="LWrist"></keypoint>
+        <keypoint name="RWrist"></keypoint>
+        <keypoint name="LHip"></keypoint>
+        <keypoint name="RHip"></keypoint>
+        <keypoint name="LKnee"></keypoint>
+        <keypoint name="RKnee"></keypoint>
+        <keypoint name="LAnkle"></keypoint>
+        <keypoint name="RAnkle"></keypoint>
+    </order>
+</skeleton>

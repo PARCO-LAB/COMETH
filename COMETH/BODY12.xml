@@ -13,7 +13,7 @@
                 </keypoint>
                 <keypoint name="RShoulder">
                     <keypoint name="RElbow" bone="RUmerus" isfixed="False">
-                        <keypoint name="RWrist" bone="RElbow" isfixed="False">
+                        <keypoint name="RWrist" bone="RRadius" isfixed="False">
                         </keypoint>
                     </keypoint>
                 </keypoint>

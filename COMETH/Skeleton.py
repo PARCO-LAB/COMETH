@@ -8,22 +8,35 @@ import os
 current_path = os.path.dirname(os.path.abspath(__file__)) + "/"
 class Skeleton():
     
-    def __init__(self,config=current_path+'BODY12.xml', name = None):
-        start = ET.parse(config).getroot()
+    def __init__(self,config='BODY12', name = None):
+        
+        if config.endswith('.xml'):
+            start = ET.parse(config).getroot()
+        else:
+            start = ET.parse(os.path.join(current_path,config+'.xml')).getroot()
         if start.tag != "skeleton":
             raise Exception("skeleton not found in xml")
         self.format = start.attrib["format"]
         self.dimension = int(start.attrib["dim"])
+        indici_A = {}
         for part in start:
             if part.tag == "keypoints":
                 self.chain = build(part[0])
+            elif part.tag == "order":
+                for i,kp in enumerate(part):
+                    indici_A[kp.attrib["name"]] = i 
         self.name = name
         self.keypoints_list = get_keypoints_list(self.chain)
         self.bones_list = get_bones_list(self.chain)
-        self.numpy_mapping = None
+        
+        # Check if there is an oreder in the xml files (useful for famous hpe formats: COCOand COCO_extended, ...)
+        if len(indici_A.keys()) > 0:
+            self.numpy_mapping = [indici_A.get(valore) for valore in [obj.name for obj in self.keypoints_list]]
+        else:
+            self.numpy_mapping = None
         self.position = np.zeros(self.dimension)
-        self.min_height = 1.44
-        self.max_height = 2.00
+        self.min_height = 1.40
+        self.max_height = 2.15
         
     def __str__(self):
         outstr = "Skeleton (format: {s}, dim: {d})\n".format(s=self.format,d=self.dimension)   
@@ -41,10 +54,11 @@ class Skeleton():
             add(self.chain,self.position)
             self.position = np.zeros(self.dimension)
 
-
     # #kps x dim
-    def load_from_numpy(self,matrix,labels):
+    def load_from_numpy(self,matrix,labels=None):
         if self.numpy_mapping is None:
+            if not labels:
+                raise Exception("No labels provided.")
             indici_A = {valore: indice for indice, valore in enumerate(labels)}
             self.numpy_mapping = [indici_A.get(valore) for valore in [obj.name for obj in self.keypoints_list]]
         
@@ -72,11 +86,15 @@ class Skeleton():
 
 
 class ConstrainedSkeleton(Skeleton):
-    def __init__(self, config, name=None):
+    def __init__(self, config='BODY15_constrained_3D', name=None):
         super().__init__(config, name)
         self.BODY12_mapping = []
+        self.COCO_mapping = []
         # Save constraints
-        start = ET.parse(config).getroot()
+        if config.endswith('.xml'):
+            start = ET.parse(config).getroot()
+        else:
+            start = ET.parse(os.path.join(current_path,config+'.xml')).getroot()
         self.bones_dict = {obj.name: obj for obj in self.bones_list}
         self.proportions = {}
         self.symmetry = {}
@@ -95,7 +113,7 @@ class ConstrainedSkeleton(Skeleton):
     
                 
     # Pass  the position of joints from a skeleton12 to a skeleton15
-    def load_from_BODY12(self,s12):
+    def load_from_BODY12(self, s12: Skeleton):
         if not self.BODY12_mapping:
             l_from = [obj.name for obj in s12.keypoints_list]
             l_to = [obj.name for obj in self.keypoints_list]
@@ -108,6 +126,33 @@ class ConstrainedSkeleton(Skeleton):
         midhip = (self.keypoints_list[9].pos+self.keypoints_list[12].pos)/2
         midshoulder = (self.keypoints_list[2].pos+self.keypoints_list[5].pos)/2
         self.keypoints_list[8].pos = midhip
+        self.keypoints_list[1].pos = midshoulder
+        self.keypoints_list[0].pos = (midshoulder+midhip)/2
+        
+        # Reset the confidences
+        for kp in self.keypoints_list:
+            kp.confidence = 1.0
+        
+        # Update bone length history
+        for b in self.bones_list:
+            # print(b.length)
+            b.history.append(b.length)
+        self.height_history.append(self.estimate_height())
+    
+    def load_from_COCO(self, s_coco: Skeleton):
+        if not self.COCO_mapping:
+            l_from = [obj.name for obj in s_coco.keypoints_list]
+            l_to = [obj.name for obj in self.keypoints_list]
+            indici_A = {valore: indice for indice, valore in enumerate(l_from)}
+            self.COCO_mapping = [indici_A.get(valore) for valore in l_to]
+        # Copy the elements that are the same
+        for i in range(len(self.keypoints_list)):
+            if self.COCO_mapping[i] is not None:
+                self.keypoints_list[i].pos = s_coco.keypoints_list[self.COCO_mapping[i]].pos
+
+        midhip = (self.keypoints_list[14].pos+self.keypoints_list[17].pos)/2
+        midshoulder = (self.keypoints_list[7].pos+self.keypoints_list[10].pos)/2
+        self.keypoints_list[13].pos = midhip
         self.keypoints_list[1].pos = midshoulder
         self.keypoints_list[0].pos = (midshoulder+midhip)/2
         

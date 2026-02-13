@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<skeleton format="COCO_extended" dim="3">
+    <keypoints>
+        <keypoint name="Root">
+            <keypoint name="MidShoulder" bone="USpine" isfixed="False">
+                    <keypoint name="Nose" bone="Neck" isfixed="False">
+                        <keypoint name="LEye" bone="LEyeBone" isfixed="True">
+                            <keypoint name="LEar" bone="LEarBone" isfixed="True">
+                            </keypoint>
+                        </keypoint>
+                        <keypoint name="REye" bone="REyeBone" isfixed="True">
+                            <keypoint name="REar" bone="REarBone" isfixed="True">
+                            </keypoint>
+                        </keypoint>
+                    </keypoint>
+                    <keypoint name="LShoulder" bone="LClavicle" isfixed="True">
+                        <keypoint name="LElbow"  bone="LHumerus" isfixed="True">
+                            <keypoint name="LWrist"  bone="LForearm" isfixed="True">
+                            </keypoint>
+                        </keypoint>
+                    </keypoint>
+                    <keypoint name="RShoulder" bone="RClavicle" isfixed="True">
+                        <keypoint name="RElbow" bone="RHumerus" isfixed="True">
+                            <keypoint name="RWrist" bone="RForearm" isfixed="True">
+                            </keypoint>
+                        </keypoint>
+                    </keypoint>
+            </keypoint>            
+            <keypoint name="MidHip" bone="DSpine" isfixed="False">
+                    <keypoint name="LHip" bone="LPelvis" isfixed="True">
+                        <keypoint name="LKnee" bone="LFemur" isfixed="True">
+                            <keypoint name="LAnkle" bone="LTibia" isfixed="True">
+                            </keypoint>
+                        </keypoint>
+                    </keypoint>
+                    <keypoint name="RHip" bone="RPelvis" isfixed="True">
+                        <keypoint name="RKnee" bone="RFemur" isfixed="True">
+                            <keypoint name="RAnkle" bone="RTibia" isfixed="True">
+                            </keypoint>
+                        </keypoint>
+                    </keypoint>
+            </keypoint>         
+        </keypoint>
+    </keypoints>
+    <constraints>
+        <proportions>
+            <!-- not sure of those first 5 -->
+            <constraint bone="Neck"         mean="0.085"    std="0.05"></constraint>
+            <constraint bone="LEyeBone"     mean="0.020"    std="0.05"></constraint>
+            <constraint bone="REyeBone"     mean="0.020"    std="0.05"></constraint>
+            <constraint bone="LEarBone"     mean="0.045"    std="0.05"></constraint>
+            <constraint bone="REarBone"     mean="0.045"    std="0.05"></constraint>
+            
+            <constraint bone="LClavicle"    mean="0.100"    std="0.01"></constraint>
+            <constraint bone="RClavicle"    mean="0.100"    std="0.01"></constraint>
+            <constraint bone="RHumerus"     mean="0.161"    std="0.01"></constraint>
+            <constraint bone="LHumerus"     mean="0.161"    std="0.01"></constraint>
+            <constraint bone="RForearm"     mean="0.146"    std="0.01"></constraint>
+            <constraint bone="LForearm"     mean="0.146"    std="0.01"></constraint>
+            <constraint bone="LFemur"       mean="0.245"    std="0.01"></constraint>
+            <constraint bone="RFemur"       mean="0.245"    std="0.01"></constraint>
+            <constraint bone="RTibia"       mean="0.240"    std="0.01"></constraint>
+            <constraint bone="LTibia"       mean="0.240"    std="0.01"></constraint>
+            <constraint bone="LPelvis"      mean="0.057"    std="0.01"></constraint>
+            <constraint bone="RPelvis"      mean="0.057"    std="0.01"></constraint>
+            <constraint bone="USpine"       mean="0.135"    std="0.01"></constraint>
+            <constraint bone="DSpine"       mean="0.135"    std="0.01"></constraint>
+        </proportions>
+        <symmetry>
+            <constraint bone1="LEyeBone"    bone2="REyeBone"    ></constraint>
+            <constraint bone1="LEarBone"    bone2="REarBone"    ></constraint>
+            
+            <constraint bone1="LClavicle"   bone2="RClavicle"   ></constraint>
+            <constraint bone1="LHumerus"    bone2="RHumerus"    ></constraint>
+            <constraint bone1="LForearm"    bone2="RForearm"    ></constraint>
+            <constraint bone1="LFemur"      bone2="RFemur"      ></constraint>
+            <constraint bone1="LTibia"      bone2="RTibia"      ></constraint>
+            <constraint bone1="LPelvis"     bone2="RPelvis"     ></constraint>
+        </symmetry>
+    </constraints>
+    <order>
+        <keypoint name="Nose"></keypoint>
+        <keypoint name="LEye"></keypoint>
+        <keypoint name="REye"></keypoint>
+        <keypoint name="LEar"></keypoint>
+        <keypoint name="REar"></keypoint>
+        <keypoint name="LShoulder"></keypoint>
+        <keypoint name="RShoulder"></keypoint>
+        <keypoint name="LElbow"></keypoint>
+        <keypoint name="RElbow"></keypoint>
+        <keypoint name="LWrist"></keypoint>
+        <keypoint name="RWrist"></keypoint>
+        <keypoint name="LHip"></keypoint>
+        <keypoint name="RHip"></keypoint>
+        <keypoint name="LKnee"></keypoint>
+        <keypoint name="RKnee"></keypoint>
+        <keypoint name="LAnkle"></keypoint>
+        <keypoint name="RAnkle"></keypoint>
+    </order>
+</skeleton>
