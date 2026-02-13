@@ -9,7 +9,7 @@ current_path = os.path.dirname(os.path.abspath(__file__)) + "/"
 class Skeleton():
     
     def __init__(self,config='BODY12', name = None):
-        
+        self.type = config
         if config.endswith('.xml'):
             start = ET.parse(config).getroot()
         else:
@@ -150,12 +150,19 @@ class ConstrainedSkeleton(Skeleton):
             if self.COCO_mapping[i] is not None:
                 self.keypoints_list[i].pos = s_coco.keypoints_list[self.COCO_mapping[i]].pos
 
-        midhip = (self.keypoints_list[14].pos+self.keypoints_list[17].pos)/2
-        midshoulder = (self.keypoints_list[7].pos+self.keypoints_list[10].pos)/2
-        self.keypoints_list[13].pos = midhip
-        self.keypoints_list[1].pos = midshoulder
-        self.keypoints_list[0].pos = (midshoulder+midhip)/2
-        
+        if self.type == 'COCO':
+            midhip = (self.keypoints_list[14].pos+self.keypoints_list[17].pos)/2
+            midshoulder = (self.keypoints_list[7].pos+self.keypoints_list[10].pos)/2
+            self.keypoints_list[13].pos = midhip
+            self.keypoints_list[1].pos = midshoulder
+            self.keypoints_list[0].pos = (midshoulder+midhip)/2
+        elif self.type == 'BODY15_constrained_3D':
+            midhip = (self.keypoints_list[9].pos+self.keypoints_list[12].pos)/2
+            midshoulder = (self.keypoints_list[2].pos+self.keypoints_list[5].pos)/2
+            self.keypoints_list[8].pos = midhip
+            self.keypoints_list[1].pos = midshoulder
+            self.keypoints_list[0].pos = (midshoulder+midhip)/2
+
         # Reset the confidences
         for kp in self.keypoints_list:
             kp.confidence = 1.0

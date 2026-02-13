@@ -44,7 +44,7 @@ class Kalman():
 template_skeleton: Dict[str, Tuple[nimble.dynamics.Skeleton, str]] = {}
 
 class DynamicSkeleton(ConstrainedSkeleton):
-    def __init__(self, config=current_path+'BODY15_constrained_3D.xml', name=None, osim_file=None, geometry_dir='', max_velocity=None):
+    def __init__(self, config='BODY15_constrained_3D', name=None, osim_file=None, geometry_dir='', max_velocity=None):
         
         super().__init__(config, name)
         self.timestamp = 0
@@ -74,9 +74,9 @@ class DynamicSkeleton(ConstrainedSkeleton):
         self.RHip = (COMETH_parameters.RASI_OFFSET+COMETH_parameters.RPSI_OFFSET)/2
         self.LHip = (COMETH_parameters.LASI_OFFSET+COMETH_parameters.LPSI_OFFSET)/2        
         
-        self.s12_base = Skeleton(current_path+'BODY12.xml')
-        self.s15_base = ConstrainedSkeleton(current_path+'BODY15_constrained_3D.xml')
-        self.skeleton_from_nimble = ConstrainedSkeleton(current_path+'BODY15_constrained_3D.xml')
+        self.s12_base = Skeleton('BODY12')
+        self.s15_base = ConstrainedSkeleton(config)
+        self.skeleton_from_nimble = ConstrainedSkeleton(config)
         
         if  self.type == 'rajagopal':
             self.kps =  COMETH_parameters.RAJAGOPAL_KPS
@@ -124,17 +124,18 @@ class DynamicSkeleton(ConstrainedSkeleton):
         self.prev_mask = None
         self.kf = None
         self.joints = [self._nimble.getJoint(l) for l in nimble_joint_names]
-        if self.hip_correction:
-            pos = self.correct(np.array(self._nimble.getJointWorldPositions(self.joints)))
-        else:
-            pos = np.array(self._nimble.getJointWorldPositions(self.joints))
-        self.s12_base.load_from_numpy(pos.reshape(-1,3),self.kps)
-        self.skeleton_from_nimble.load_from_BODY12(self.s12_base)
+
+        # Perchè si fa?
+        # if self.hip_correction:
+        #     pos = self.correct(np.array(self._nimble.getJointWorldPositions(self.joints)))
+        # else:
+        #     pos = np.array(self._nimble.getJointWorldPositions(self.joints))
+        # self.s12_base.load_from_numpy(pos.reshape(-1,3),self.kps)
+        # self.skeleton_from_nimble.load_from_BODY12(self.s12_base)
     
         # Save for faster qpIK
         self.qpIK_problems = {}
         self.reset()
-        
         
     def reset_history(self):
         for b in self.bones_list:
@@ -221,19 +222,14 @@ class DynamicSkeleton(ConstrainedSkeleton):
                 if  b.length > COMETH_parameters.MAX_BONE_LENGTH or \
                     abs(self.bones_dict[b.name].length-b.length) > COMETH_parameters.MAX_BONE_LENGTH_DIFFERENCE:
                     print("Removed", b.dest.name)
-                    # self.s15_base.bones_list[j].src.pos = np.array([np.nan,np.nan,np.nan])
                     self.s15_base.bones_list[j].dest.pos = np.array([np.nan,np.nan,np.nan])
             # Dump back the keypoints into the measurements format
             m = self.s15_base.to_numpy(self.kps)
             
-            # print(m)
             # Remove out of cluster measurements
             distances = np.linalg.norm(m - np.nanmean(m, axis=0), axis=1)
             threshold = max(np.nanmean(distances) + 2 * np.nanstd(distances), COMETH_parameters.MAX_DISTANCE_FROM_CLUSTER)
             m[distances > threshold, :] = np.nan
-            # print(threshold)
-            # print(m)
-            # exit()
             
             if np.all(np.isnan(m)):
                 self.measurements.pop(i)
@@ -267,18 +263,12 @@ class DynamicSkeleton(ConstrainedSkeleton):
                 if not np.isnan(sc):
                     scale[i,:] = sc
         
-        # V0: Clip the scaling between fixed bounds ----------------------------
-        # avg_scale = np.mean(scale)
-        # scale = np.clip(scale,avg_scale-0.05,avg_scale+0.05)
-        # self._nimble.setBodyScales(scale.reshape(-1,1))
-        
-        # V1: Clip the scaling between fixed bounds ----------------------------
+        # Clip the scaling between fixed bounds
         avg_scale = np.mean(scale)
         if avg_scale > 0.7 and avg_scale < 1.3:
             avg_scale = np.mean(scale)
         else:
-            avg_scale = h / self.skeleton_from_nimble.estimate_height()
-        # ----------------------------------------------------------------------            
+            avg_scale = h / self.skeleton_from_nimble.estimate_height()          
         scale = np.clip(scale,avg_scale-0.05,avg_scale+0.05) # A skeleton may not have the same proportions as the BSM (5%)
         self._nimble.setBodyScales(scale.reshape(-1,1))
             
@@ -319,11 +309,7 @@ class DynamicSkeleton(ConstrainedSkeleton):
                     d_loss_d__pos = 2 * (pos - target)
                     d_pos_d_scales = self._nimble.getJointWorldPositionsJacobianWrtBodyScales(self.joints)
                     d_pos_d_scales = d_pos_d_scales[mask.reshape(1,-1).squeeze(),:]
-                    # d_pos_d_scales = d_pos_d_scales[mask.reshape(1,-1).squeeze(),0:72:3]
                     d_loss_d_scales = d_pos_d_scales.T @ d_loss_d__pos
-                    # d_loss_d_scales = d_loss_d_scales.reshape((1,-1))
-                    # d_loss_d_scales = np.array([d_loss_d_scales,d_loss_d_scales,d_loss_d_scales]).transpose()
-                    # d_loss_d_scales = d_loss_d_scales.squeeze().reshape((-1,))
                     scale -= 0.001 * d_loss_d_scales
                     self._nimble.setBodyScales(scale)
                     j+=1
@@ -331,7 +317,6 @@ class DynamicSkeleton(ConstrainedSkeleton):
             error = np.array(self._nimble.getJointWorldPositions(self.joints))[mask.reshape(1,-1).squeeze()] - target
             loss = np.inner(error, error)
             if np.abs(older_loss - loss) < precision:
-                # print(loss)
                 break
             older_loss = loss
     
@@ -350,10 +335,7 @@ class DynamicSkeleton(ConstrainedSkeleton):
         key = ""
         for k in nkey.tolist():
             key+=str(k)+"."
-        
-        # TODO: remove?
-        # print(key,key in self.qpIK_problems.keys())
-        
+                
         problem_to_build = False if key in self.qpIK_problems.keys() else True
             
         subsets_joints = []
@@ -410,8 +392,6 @@ class DynamicSkeleton(ConstrainedSkeleton):
             self.dq = self.qpIK_problems[key]["dq"]
             self.q = self.qpIK_problems[key]["q"]
         
-        # self.Rdiag.value = np.diag([self.keypoints_dict[kp].confidence for kp in self.kps for _ in range(3)])
-                
         self.dq_l.value = dt*self.qdot_l
         self.dq_u.value = dt*self.qdot_u
         self.dq_prev.value = np.zeros(self.q.shape)
@@ -432,10 +412,7 @@ class DynamicSkeleton(ConstrainedSkeleton):
             for j in range(len(self.x_targets)):
                 self.Js[j].value = J[masks[j].reshape(1,-1).squeeze(),:]
                 self.xs[j].value = x[masks[j].reshape(1,-1).squeeze()]
-            
-            # V0-1-2 Loss
-            # error = np.nanmean([self.xs[j].value - self.x_targets[j].value])
-            
+                        
             # V3 Loss
             error = np.nanmean([np.nanmean(self.xs[j].value - self.x_targets[j].value) for j in range(len(self.x_targets))])
             
@@ -445,9 +422,7 @@ class DynamicSkeleton(ConstrainedSkeleton):
                 break
             older_loss = loss
             
-            # self.prob.solve(solver=cp.ECOS)
             self.prob.solve(solver=cp.OSQP, warm_start=True)
-            # print(i,self.prob.status,type(self.dq.value))
             self.dq_prev.value += np.array(self.dq.value)
             self._nimble.setPositions(self.q.value+self.dq.value) # *0.01
             i+=1
