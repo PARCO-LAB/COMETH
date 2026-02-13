@@ -102,6 +102,7 @@ class DynamicSkeleton(ConstrainedSkeleton):
         # Set the initial position in between the limits 
         # Root initial position [xrot?,yrot?,zrot?,xpos,ypos,zpos]
         self.neutral_position = self._nimble.getPositions()
+        self.neutral_scale = self._nimble.getBodyScales()
         self.neutral_position[:6] = np.zeros(6)
         self.neutral_position[0] = np.pi
         self.neutral_position[2] = -np.pi/2
@@ -145,9 +146,9 @@ class DynamicSkeleton(ConstrainedSkeleton):
     
     def reset(self):
         self._nimble.setPositions(self.neutral_position)
+        self._nimble.setBodyScales(self.neutral_scale)
         self.reset_history()
         self.kf = None
-        # self._nimble.setBodyScales()
     
     def estimate_confidence(self):
         # Update each keypoint.confidence value
