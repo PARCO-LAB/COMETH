@@ -45,7 +45,9 @@ template_skeleton: Dict[str, Tuple[nimble.dynamics.Skeleton, str]] = {}
 
 class DynamicSkeleton(ConstrainedSkeleton):
     def __init__(self, config='BODY15_constrained_3D', name=None, osim_file=None, geometry_dir='', max_velocity=None):
-        
+        """
+        Initialize the dynamic skeleton model.
+        """
         super().__init__(config, name)
         self.timestamp = 0
         self.last_timestamp = 0
@@ -88,12 +90,9 @@ class DynamicSkeleton(ConstrainedSkeleton):
             self.bodies_name_translated = COMETH_parameters.BSM_BODIES_NAME_TRANSLATED
 
         self.hip_correction = True  # manually adjust the hip offset (disable if ur using marker-based mocap)
-        # ----------------------------------------------------------------------
-        # For IMUs
-        # self.bodies_dict = {obj.getName(): obj for obj in self._nimble.getBodyNodes()}
-        self.IMUs = []
         
-        #-----------------------------------------------------------------------
+        # For IMUs
+        self.IMUs = []
         
         # Turn the limits in radians
         self.q_l = COMETH_parameters.Q_LOWER_BOUND*np.pi/180
@@ -165,19 +164,10 @@ class DynamicSkeleton(ConstrainedSkeleton):
                     b.src.confidence  = max( b.src.confidence - 0.1, 0) 
                     b.dest.confidence  = max( b.dest.confidence - 0.1, 0)
         
-    
-    # Remove the joint position to place the corrected hip (closer to ASI and PSI)
     def correct(self,pos):
-        
-        # # Old version (some of the nimble's features are not working with torch >2 -> segfault)
-        # transform = self._nimble.getBodyNode('pelvis').getWorldTransform()
-        # pos[3*self.kps.index("RHip"):3*self.kps.index("RHip")+3] = transform.multiply(np.multiply(scale,self.RHip))
-        # pos[3*self.kps.index("LHip"):3*self.kps.index("LHip")+3] = transform.multiply(np.multiply(scale,self.LHip))
-        # transform = self._nimble.getBodyNode('scapula_l').getWorldTransform()
-        # pos[3*self.kps.index("LShoulder"):3*self.kps.index("LShoulder")+3] = transform.multiply(self.LShoulder)
-        # transform = self._nimble.getBodyNode('scapula_r').getWorldTransform()
-        # pos[3*self.kps.index("RShoulder"):3*self.kps.index("RShoulder")+3] = transform.multiply(self.RShoulder)
-        
+        """
+        Apply corrections to the hip joint positions if the given keypoint are closer to ASI and PSI (depends on the dataset).
+        """
         # Correct the pelvis joint
         scale = self._nimble.getBodyNode('pelvis').getScale()
         transform = self._nimble.getBodyNode('pelvis').getWorldTransform().matrix()
@@ -198,9 +188,11 @@ class DynamicSkeleton(ConstrainedSkeleton):
         
         return pos
     
-    # After the scaling process, if there are measurements too far from the 
-    # skeleton, remove those keypoints
+    
     def remove_outlier_measurements(self,mapping):
+        """
+        After the scaling process, if there are measurements too far from the skeleton, remove those keypoints
+        """
         
         # Set the current 3D joint position of the skeleton if 
         # never gone trhough qpIK
@@ -238,8 +230,12 @@ class DynamicSkeleton(ConstrainedSkeleton):
     
     
     
-    # Scaling better suited for noisy input (e.g., marker-less data)
+    
     def estimate_scale(self):
+        """
+        Scaling better suited for noisy input (e.g., marker-less data)
+        """
+
         scale =  self._nimble.getBodyScales().reshape(-1,3)
         # If there may be error is the height and bones estimation, return the mean of the previous
         if np.all(np.isnan(self.height_history)):
@@ -272,8 +268,17 @@ class DynamicSkeleton(ConstrainedSkeleton):
         scale = np.clip(scale,avg_scale-0.05,avg_scale+0.05) # A skeleton may not have the same proportions as the BSM (5%)
         self._nimble.setBodyScales(scale.reshape(-1,1))
             
-    # Inverse kinematics through gradient descend
+    
     def exact_scale(self,max_iterations=1000,precision=0.001,to_scale=True):
+    
+        """
+        Inverse kinematics through gradient descend. Optimal with high precision marker-based data.
+        
+        :param max_iterations: the higher the slower and the better
+        :param precision: the lower the slower and the better
+        :param to_scale: do you want to also adjust the scale of the subject? Or only fit the position in 3D space?
+        """
+
         older_loss = np.inf
         mask = ~np.isnan(super().to_numpy(self.kps)) 
         target = super().to_numpy(self.kps)[mask].reshape(1,-1).squeeze()
@@ -320,9 +325,17 @@ class DynamicSkeleton(ConstrainedSkeleton):
                 break
             older_loss = loss
     
-    # multisource_qpIK from 3D keypoints targets
+
     def qpIK(self,targets,max_iterations=100,dt=0.02,precision=0.00001):
+        """
+        Solve a quadratic programming problem for inverse kinematics with multiple 3D positional targets.
         
+        :param targets: list of arrays representing the 3D positional targets
+        :param max_iterations: the higher the slower and the better
+        :param dt: Time between this set of measurements and the previous one. Used in the velocity constrainsts
+        :param precision: the lower the slower and the better
+        """
+
         # Get the number of keypoints seen from each source and sort them from
         # the lowest to the highest
         masks = [~np.isnan(t) for t in targets]
@@ -355,15 +368,17 @@ class DynamicSkeleton(ConstrainedSkeleton):
             self.dq = cp.Variable((49,))
             self.constraints = []
             self.constraints += [self.xs[i] + self.Js[i]@self.dq == self.x_targets[i] + self.deltas[i] for i in range(len(masks))]
-            # Joint limits
-            # self.constraints += [-self.dq[6:] >= -1*(self.q_u[6:]-self.q[6:]), self.dq[6:] >= -1*(self.q[6:]-self.q_l[6:])]
+            
+            # Positional constraints
             self.constraints += [-self.dq >= -1*(self.q_u-self.q), self.dq >= -1*(self.q-self.q_l)]
-            self.dq_prev = cp.Parameter((49,))
+            
             # Velocity constraints
+            self.dq_prev = cp.Parameter((49,))
             self.dq_l = cp.Parameter((49,))
-            self.dq_u = cp.Parameter((49,))
-            # self.constraints += [self.dq_prev[6:] + self.dq[6:] >= self.dq_l[6:], self.dq_prev[6:] + self.dq[6:] <= self.dq_u[6:]]
+            self.dq_u = cp.Parameter((49,))            
             self.constraints += [self.dq_prev + self.dq >= self.dq_l, self.dq_prev + self.dq <= self.dq_u]
+
+            # Objective
             to_minimize = cp.quad_form(self.dq,np.eye(self.dq.shape[0]))
             for delta in self.deltas:
                 to_minimize += cp.quad_form(delta,np.eye(delta.shape[0]))
@@ -424,11 +439,21 @@ class DynamicSkeleton(ConstrainedSkeleton):
             
             self.prob.solve(solver=cp.OSQP, warm_start=True)
             self.dq_prev.value += np.array(self.dq.value)
-            self._nimble.setPositions(self.q.value+self.dq.value) # *0.01
+            self._nimble.setPositions(self.q.value+self.dq.value)
             i+=1
     
     # Use a Kalman filter and the qpIK to smooth the data and move the skeleton towards measurements
     def filter(self,data_list=None,iterations=COMETH_parameters.QPIK_ITERATIONS,dt=100,Q=0.001,to_predict=True, precision=COMETH_parameters.QPIK_PRECISION):
+        """
+        Use a Kalman filter and qpIK to smooth the data and move the skeleton towards measurements.
+        
+        :param data_list: list of arrays representing the 3D positional targets
+        :param iterations: the higher the slower and the better
+        :param dt: Time between this set of measurements and the previous one. Used in the velocity constraints
+        :param Q: Process noise for the KF
+        :param to_predict: Do you have to move the subject forward?
+        :param precision: the lower the slower and the better
+        """
         self.qpIK(data_list,iterations,dt,precision=precision)
         pos = self._nimble.getPositions()
         
@@ -443,6 +468,9 @@ class DynamicSkeleton(ConstrainedSkeleton):
             self._nimble.setPositions(pos)
             
     def to_numpy(self):
+        """
+        Convert joint positions to 3D keypoints position in numpy array.
+        """
         if self.hip_correction:
             return self.correct(np.array(self._nimble.getJointWorldPositions(self.joints)))
         else:
@@ -505,6 +533,10 @@ class DynamicSkeleton(ConstrainedSkeleton):
             self.IMUs[i] = (imu[0],nimble.math.Isometry3(T_i_b[:3,:3], T_old[:3,3]))
 
     def qpik_IMU(self, acc_target=None, gyro_target=None, position_target=None, max_iterations=100, precision=0.0001, dt=1/60):
+        """
+        Perform inverse kinematics using accelerometer and gyroscope targets along with joint positions.
+        """
+        
         # Variable declaration
         dq = cp.Variable((49,))
         delta_a =  cp.Variable((9,))
