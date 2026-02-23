@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="description"
+        content="Website for FLK">
+  <meta name="keywords" content="Kalman filters, Motion capture, Motion analysis, Biomechanics, Multisensor systems, Sensor fusion, Human pose estimation, Tracking, Edge computing">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>COMETH: Convex Optimization for Multiview Estimation and Tracking of Humans </title>
+
+  <style>
+    .responsive-image {    
+        display: block;    
+        margin-left: auto;
+        margin-right: auto;
+        width: 90%;
+    }
+</style>
+
+<style>
+    ul {
+        list-style-type: none; /* Remove default bullet points */
+    }
+
+    ul li::before {
+        content: "-"; /* Set '-' as the content before each list item */
+        margin-right: 8px; /* Add some space between '-' and the text */
+    }
+</style>
+
+  <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro"
+        rel="stylesheet">
+
+  <link rel="stylesheet" href="./static/css/bulma.min.css">
+  <link rel="stylesheet" href="./static/css/bulma-carousel.min.css">
+  <link rel="stylesheet" href="./static/css/bulma-slider.min.css">
+  <link rel="stylesheet" href="./static/css/fontawesome.all.min.css">
+  <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+  <link rel="stylesheet" href="./static/css/index.css">
+  <link rel="icon" href="./static/images/favicon.svg">
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script defer src="./static/js/fontawesome.all.min.js"></script>
+  <script src="./static/js/bulma-carousel.min.js"></script>
+  <script src="./static/js/bulma-slider.min.js"></script>
+  <script src="./static/js/index.js"></script>
+</head>
+<body>
+
+<!-- <nav class="navbar" role="navigation" aria-label="main navigation">
+  <div class="navbar-brand">
+    <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false">
+      <span aria-hidden="true"></span>
+      <span aria-hidden="true"></span>
+      <span aria-hidden="true"></span>
+    </a>
+  </div>
+  <div class="navbar-menu">
+    <div class="navbar-start" style="flex-grow: 1; justify-content: center;">
+      <a class="navbar-item" href="https://samin.netlify.app">
+      <span class="icon">
+          <i class="fas fa-home"></i>
+      </span>
+      </a>      
+    </div>
+  </div>
+</nav> -->
+
+
+<section class="hero">
+  <div class="hero-body">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column has-text-centered">
+          <h1 class="title is-1 publication-title">COMETH: Convex Optimization for Multiview Estimation and Tracking of Humans</h1>
+          <div class="is-size-5 publication-authors">
+            <span class="author-block">
+              <a href="https://scholar.google.com/citations?hl=en&user=m4TgsRMAAAAJ">Enrico Martini</a><sup>a,b</sup>,</span>
+            <span class="author-block">
+              <a href="https://scholar.google.com/citations?user=GrL4IBwAAAAJ&hl=en&oi=ao">Ho Jin Choi</a><sup>b</sup>,</span>
+            <span class="author-block">
+              <a href="https://scholar.google.com/citations?user=GrL4IBwAAAAJ&hl=en&oi=ao">Nadia Figueroa</a><sup>b</sup>,</span>
+            <span class="author-block">
+              <a href="https://scholar.google.com/citations?hl=en&user=eLA-qo8AAAAJ">Nicola Bombieri</a><sup>a</sup>,
+            </span>            
+          </div>
+
+          <div class="is-size-5 publication-authors">
+            <span class="author-block"><sup>a</sup>Department of Engineering for Innovation Medicine, University of Verona, Italy.</span><br>
+            <span class="author-block"><sup>b</sup>GRASP Laboratory, Department of Mechanical Engineering and Applied Mechanics, University of Pennsylvania, Philadelphia, Pennsylvania, USA.</span>
+          </div>
+
+          <div class="column has-text-centered">
+            <div class="publication-links">
+              <!-- PDF Link. -->
+              <span class="link-block">
+                <a href="https://doi.org/10.1016/j.eswa.2026.131728"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="fas fa-file-pdf"></i>
+                  </span>
+                  <span>Paper</span>
+                </a>
+              </span>              
+              <!-- Code Link. -->
+              <span class="link-block">
+                <a href="https://github.com/PARCO-LAB/COMETH"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="fab fa-github"></i>
+                  </span>
+                  <span>Code</span>
+                  </a>
+              </span>
+              <!-- Dataset Link. -->
+              <!-- <span class="link-block">
+                <a href="https://drive.google.com/drive/folders/1UvcFVPG2TdiaZAsWLX6eSbrvo_UWShB_"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="far fa-images"></i>
+                  </span>
+                  <span>Data</span>
+                  </a> -->
+
+                  <!-- <span class="link-block">
+                    <a href="https://youtu.be/T0_l6Qvvhsg"
+                       class="external-link button is-normal is-rounded is-dark">
+                      <span class="icon">
+                          <i class="fab fa-youtube"></i>
+                      </span>
+                      <span>Video</span>
+                    </a>
+                  </span> -->
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">Abstract</h2>
+        <div class="content has-text-justified">
+          <p>
+In the era of Industry 5.0, <b>monitoring human activity</b> is essential for ensuring both ergonomic safety and overall well-being. 
+While multi-camera centralized setups improve pose estimation accuracy, they often suffer from high computational costs and bandwidth requirements, limiting scalability and real-time applicability. 
+Distributing processing across edge devices can reduce network bandwidth and computational load. 
+On the other hand, the constrained resources of edge devices lead to accuracy degradation, and the distribution of computation leads to temporal and spatial inconsistencies. 
+We address this challenge by proposing <b>COMETH</b> (Convex Optimization for Multiview Estimation and Tracking of Humans), <b>a lightweight algorithm for real-time multi-view human pose fusion</b> that relies on three concepts: 
+it integrates <b>kinematic and biomechanical constraints</b> to increase the joint positioning accuracy; it employs <b>convex optimization-based inverse kinematics</b> for spatial fusion; and it implements a <b>state observer</b> to improve temporal consistency. 
+We evaluate COMETH on both public and industrial datasets, where it outperforms state-of-the-art methods in localization, detection, and tracking accuracy. 
+The proposed fusion pipeline enables accurate and scalable human motion tracking, making it well-suited for industrial and safety-critical applications. 
+          </p>
+        </div>
+      </div>
+    </div>
+    <!--/ Abstract. -->
+    <!--/ Paper video. -->
+</div><br>
+<img src="static/figures/pipeline.jpg"  width="" alt="Interact-banner" class="responsive-image">
+  <!-- <center><img src="figures/general_pipeline.jpg" alt="Interact-banner" style="width:80%;"></center> -->
+  
+</section>
+<!-- <section class="section">
+    <div class="container is-max-desktop">
+      <h2 class="title is-3">PoseTron: A Multimodal transformer for multi-agent motion prediction</h2>
+      <p>It features:</p>
+      <ul>
+          <li>Multimodal Pose Encoder for encoding pose information for multiple agents</li>          
+          <li>Multimodal Pose Decoder for auto-regressively predicitng future pose information</li>          
+      </ul>
+      
+    <img src="./static/images/posetron_architecture.png" alt="PoseTron-banner" class="responsive-image">          
+</section> -->
+
+<section class="section" id="BibTeX">
+  <div class="container is-max-desktop content">
+    <h2 class="title">BibTeX</h2>
+    <pre><code>@article{Martini2026,
+  title = {COMETH: Convex optimization for multiview estimation and tracking of humans},
+  volume = {314},
+  ISSN = {0957-4174},
+  url = {http://dx.doi.org/10.1016/j.eswa.2026.131728},
+  DOI = {10.1016/j.eswa.2026.131728},
+  journal = {Expert Systems with Applications},
+  publisher = {Elsevier BV},
+  author = {Martini,  Enrico and Choi,  Ho Jin and Figueroa,  Nadia and Bombieri,  Nicola},
+  year = {2026},
+  month = jun,
+  pages = {131728}
+}
+</code></pre>
+  </div>
+</section>
+
+
+<footer class="footer">
+  <div class="container">    
+    <div class="columns is-centered">
+      <div class="column is-8">
+        <div class="content">
+          <p>
+            This website is licensed under a <a rel="license"
+                                                href="https://creativecommons.org/licenses/by-nc-nd/4.0/">Attribution-NonCommercial-NoDerivs 
+                                                4.0 International License</a>.
+          </p>
+          <p>
+            Website borrowed from  <a href="https://github.com/nerfies/nerfies.github.io">Nerfies</a> 
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
