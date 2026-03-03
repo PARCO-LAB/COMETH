@@ -3,6 +3,7 @@ tmp/
 others/
 utils/resnet18_baseline_att_224x224_A_epoch_249.pth
 .venv/
+COMETH-viewer/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
