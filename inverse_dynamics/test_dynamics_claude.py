@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import os
 
 # Read ground truth data from CSV
-markers = pd.read_csv("../tmp/imu/vicon_s1_acting1.csv")
+markers = pd.read_csv("/home/emartini/COMETH/tmp/imu/vicon_s1_acting1.csv")
 s12 = Skeleton()
 # Build the markers dataframe with only the subset we are interested in
 Rz = np.array([
@@ -455,6 +455,7 @@ s._nimble.setGravity([0,0,-9.81])
 dt = 0.033
 results = []
 Fc = []
+MPJPE = []
 for i in range(0,target.shape[0]):
     s12.load_from_numpy(target[i,:].reshape(-1,3),s.kps)
     target_kps = s12.to_numpy(s.kps,3).reshape(1,-1).squeeze()
@@ -492,4 +493,6 @@ for i in range(0,target.shape[0]):
 
     pos3D = s.to_numpy()
     error = np.linalg.norm(pos3D.reshape(-1,3)-target[i,:].reshape(-1,3), axis=1)
-    print(np.round(np.mean(error),2),np.round(np.max(error),2),np.round(np.min(error),2))
+    MPJPE.append(np.round(np.mean(error),2))
+    avg_MPJPE = np.mean(MPJPE)
+print(avg_MPJPE)
