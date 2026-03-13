@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import os
 
 # Read ground truth data from CSV
-markers = pd.read_csv("/home/emartini/COMETH/tmp/imu/vicon_s1_acting1.csv")
+markers = pd.read_csv("/home/emartini/COMETH/inverse_dynamics/data.csv")
 s12 = Skeleton()
 # Build the markers dataframe with only the subset we are interested in
 Rz = np.array([
