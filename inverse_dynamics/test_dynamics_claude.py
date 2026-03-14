@@ -106,7 +106,7 @@ def estimate_contact_points(skeleton, target = None):
     res_world = get_world_contact_points(contact_info)
     to_keep = []
     for i, c_point in enumerate(contact_info):
-        if res_world[i][-1] < .04:
+        if res_world[i][-1] < 0.03:
             to_keep.append(c_point)
 
     return to_keep
@@ -284,12 +284,12 @@ def qpid(skeleton, x_t, dt=0.033, mu=0.8, excluded_DOFs=None):
     J_kp = J_kp_full[:, active_dofs]
     J_c = J_c_full[:, active_dofs]
 
-    # PD-controller
-    Kp = 150.0 
-    Kd = 20.0  
+    # PD-controller - Improved gains for better tracking
+    Kp = 200.0  # Increased proportional gain for faster response
+    Kd = 30.0   # Increased derivative gain for better damping
     x_t_flat = np.array(x_t).flatten()
     # x_dot usa J_kp_full perché dq contiene le velocità correnti (anche dei giunti che stiamo per "congelare")
-    x_dot_current = J_kp_full @ dq 
+    x_dot_current = J_kp_full @ dq
     x_des_ddot = Kp * (x_t_flat - x_current) - Kd * x_dot_current
 
     # --- 4. VARIABILI CVXPY (DIMENSIONI RIDOTTE) ---
@@ -382,7 +382,7 @@ def qpid(skeleton, x_t, dt=0.033, mu=0.8, excluded_DOFs=None):
     W_ddq[null_dof_indices, null_dof_indices] = 10.0  
     
     W_tau = np.eye(n_act) * 10           
-    W_fc = np.eye(n_contacts * 3) * 0.1   
+    W_fc = np.eye(n_contacts * 3) * 0.05
     W_delta = np.eye(n_kp * 3) * 1e5
     W_virtual = np.eye(6) * 1e3  
     W_z = np.eye(n_contacts) * 1e4
