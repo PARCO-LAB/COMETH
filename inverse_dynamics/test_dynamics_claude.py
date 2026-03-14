@@ -106,7 +106,7 @@ def estimate_contact_points(skeleton, target = None):
     res_world = get_world_contact_points(contact_info)
     to_keep = []
     for i, c_point in enumerate(contact_info):
-        if res_world[i][-1] < 0.03:
+        if res_world[i][-1] < .04:
             to_keep.append(c_point)
 
     return to_keep
@@ -377,16 +377,24 @@ def qpid(skeleton, x_t, dt=0.033, mu=0.8, excluded_DOFs=None):
     # --- 9. PESI E REGOLARIZZAZIONE ---
     sv_Jkp = diagnose_matrix("J_kp", J_kp, to_print=False)
     null_dof_indices = np.where(sv_Jkp < 1e-6)[0]
-    
+
     W_ddq = np.eye(n_dof) * 1.0
-    W_ddq[null_dof_indices, null_dof_indices] = 10.0  
-    
-    W_tau = np.eye(n_act) * 10           
-    W_fc = np.eye(n_contacts * 3) * 0.05
+    W_ddq[null_dof_indices, null_dof_indices] = 10.0
+
+    W_tau = np.eye(n_act) * 5
+    W_fc = np.eye(n_contacts * 3) * 0.025
     W_delta = np.eye(n_kp * 3) * 1e5
-    W_virtual = np.eye(6) * 1e3  
+    W_virtual = np.eye(6) * 1e3
     W_z = np.eye(n_contacts) * 1e4
-    
+
+    # Add numerical stabilization to avoid ill-conditioned matrices
+    # If we have very small singular values, add regularization
+    condition_number = sv_Jkp[0] / sv_Jkp[-1] if sv_Jkp[-1] > 1e-12 else 1e12
+    if condition_number > 1e6:
+        print(f"Warning: High condition number {condition_number:.2e} detected")
+        # Add small regularization to improve conditioning
+        W_ddq += np.eye(n_dof) * 0.1
+
     cost = (
         cp.quad_form(ddq, W_ddq) +
         cp.quad_form(tau, W_tau) +
@@ -401,7 +409,8 @@ def qpid(skeleton, x_t, dt=0.033, mu=0.8, excluded_DOFs=None):
 
     try:
         problem.solve(
-            solver=cp.OSQP, warm_start=True, scaling=25, adaptive_rho=True, rho=0.01, polish=True, polish_refine_iter=5
+            solver=cp.OSQP, warm_start=True, scaling=25, adaptive_rho=True, rho=0.01, polish=True, polish_refine_iter=5,
+            max_iter=5000, eps_abs=1e-4, eps_rel=1e-4
         )
     except Exception as e:
         if "ArpackError" in str(type(e)):
