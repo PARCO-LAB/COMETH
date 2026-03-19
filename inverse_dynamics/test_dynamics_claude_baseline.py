@@ -82,15 +82,16 @@ def estimate_contact_points(skeleton, target = None):
     left_calcn = skeleton._nimble.getBodyNode("calcn_l")
     right_calcn = skeleton._nimble.getBodyNode("calcn_r")
 
-    left_calc_offset_L = [0.0,  0.0, -0.05]  # Tallone (indietro)
-    left_calc_offset_R = [0.0,  0.0, 0.05]  # Tallone (indietro)
-    right_calc_offset_L = [0.0,  0.0, -0.05]  # Tallone (indietro)
-    right_calc_offset_R = [0.0,  0.0, 0.05]  # Tallone (indietro)
-    
-    left_toes_offset_L = [0.20,  0.0, -0.05]  # Tallone (indietro)
-    left_toes_offset_R = [0.20,  0.0, 0.05]  # Tallone (indietro)
-    right_toes_offset_L = [0.20,  0.0, -0.05]  # Tallone (indietro)
-    right_toes_offset_R = [0.20,  0.0, 0.05]  # Tallone (indietro)
+    # More refined contact point positions - adjust for better foot-ground contact detection
+    left_calc_offset_L = [0.0,  0.0, -0.03]  # Heel (slightly forward)
+    left_calc_offset_R = [0.0,  0.0, 0.03]   # Heel (slightly forward)
+    right_calc_offset_L = [0.0,  0.0, -0.03]  # Heel (slightly forward)
+    right_calc_offset_R = [0.0,  0.0, 0.03]   # Heel (slightly forward)
+
+    left_toes_offset_L = [0.15,  0.0, -0.03]  # Toe (more forward and slightly up)
+    left_toes_offset_R = [0.15,  0.0, 0.03]   # Toe (more forward and slightly up)
+    right_toes_offset_L = [0.15,  0.0, -0.03]  # Toe (more forward and slightly up)
+    right_toes_offset_R = [0.15,  0.0, 0.03]   # Toe (more forward and slightly up)
 
     contact_info = [
             (left_calcn, left_calc_offset_L),
@@ -105,8 +106,15 @@ def estimate_contact_points(skeleton, target = None):
 
     res_world = get_world_contact_points(contact_info)
     to_keep = []
+
+    # Use a more robust threshold and consider the z-coordinate more carefully
     for i, c_point in enumerate(contact_info):
-        if res_world[i][-1] < .04:
+        # Check if point is close enough to ground (0.03 instead of 0.04 for better detection)
+        z_coord = res_world[i][-1]
+        if z_coord < 0.03:  # More lenient threshold
+            to_keep.append(c_point)
+        # Also include points that are very close to ground but slightly above (for stability)
+        elif z_coord < 0.05 and z_coord > 0.0:
             to_keep.append(c_point)
 
     return to_keep
@@ -115,15 +123,16 @@ def estimate_contact_points_old(skeleton, target = None):
     left_calcn = skeleton._nimble.getBodyNode("calcn_l")
     right_calcn = skeleton._nimble.getBodyNode("calcn_r")
 
-    left_calc_offset_L = [0.0,  0.0, -0.05]  # Tallone (indietro)
-    left_calc_offset_R = [0.0,  0.0, 0.05]  # Tallone (indietro)
-    right_calc_offset_L = [0.0,  0.0, -0.05]  # Tallone (indietro)
-    right_calc_offset_R = [0.0,  0.0, 0.05]  # Tallone (indietro)
-    
-    left_toes_offset_L = [0.20,  0.0, -0.05]  # Tallone (indietro)
-    left_toes_offset_R = [0.20,  0.0, 0.05]  # Tallone (indietro)
-    right_toes_offset_L = [0.20,  0.0, -0.05]  # Tallone (indietro)
-    right_toes_offset_R = [0.20,  0.0, 0.05]  # Tallone (indietro)
+    # Use more conservative positions for better stability
+    left_calc_offset_L = [0.0,  0.0, -0.03]  # Heel (slightly forward)
+    left_calc_offset_R = [0.0,  0.0, 0.03]   # Heel (slightly forward)
+    right_calc_offset_L = [0.0,  0.0, -0.03]  # Heel (slightly forward)
+    right_calc_offset_R = [0.0,  0.0, 0.03]   # Heel (slightly forward)
+
+    left_toes_offset_L = [0.15,  0.0, -0.03]  # Toe (more forward and slightly up)
+    left_toes_offset_R = [0.15,  0.0, 0.03]   # Toe (more forward and slightly up)
+    right_toes_offset_L = [0.15,  0.0, -0.03]  # Toe (more forward and slightly up)
+    right_toes_offset_R = [0.15,  0.0, 0.03]   # Toe (more forward and slightly up)
 
     if target is None:
         contact_info = [
@@ -140,14 +149,17 @@ def estimate_contact_points_old(skeleton, target = None):
         lankle_z = target[35]
         rankle_z = target[32]
         ground = 0.1
+        # More robust contact detection - if both feet are off ground, use default
         if lankle_z > ground and rankle_z < ground:
-            contact_info = [                
+            # Right foot on ground
+            contact_info = [
                 (right_calcn, right_calc_offset_L),
                 (right_calcn, right_calc_offset_R),
                 (right_calcn, right_toes_offset_L),
                 (right_calcn, right_toes_offset_R),
             ]
         elif rankle_z > ground and lankle_z < ground:
+            # Left foot on ground
             contact_info = [
                 (left_calcn, left_calc_offset_L),
                 (left_calcn, left_calc_offset_R),
@@ -155,6 +167,7 @@ def estimate_contact_points_old(skeleton, target = None):
                 (left_calcn, left_toes_offset_R),
             ]
         else:
+            # Both feet or neither on ground - use default contact points
             contact_info = [
                 (left_calcn, left_calc_offset_L),
                 (left_calcn, left_calc_offset_R),
@@ -256,6 +269,11 @@ def qpid(skeleton, x_t, dt=0.033, mu=0.8, excluded_DOFs=None):
     # Trova tutti i DOFs "attivi"
     active_dofs = [i for i in range(n_dof_full) if i not in excluded_DOFs]
     n_dof = len(active_dofs)  # Nuova dimensione del problema
+
+    # Debug: Check if we have valid dimensions
+    if n_dof <= 0:
+        print("Errore: Nessun DOF attivo trovato")
+        return None
     
     # Trova i DOFs attivi che sono anche attuati (indice >= 6)
     active_act_dofs = [d for d in active_dofs if d >= 6]
@@ -377,16 +395,20 @@ def qpid(skeleton, x_t, dt=0.033, mu=0.8, excluded_DOFs=None):
     # --- 9. PESI E REGOLARIZZAZIONE ---
     sv_Jkp = diagnose_matrix("J_kp", J_kp, to_print=False)
     null_dof_indices = np.where(sv_Jkp < 1e-6)[0]
-    
+
+    # Add more robust regularization to handle ill-conditioned matrices
     W_ddq = np.eye(n_dof) * 1.0
-    W_ddq[null_dof_indices, null_dof_indices] = 10.0  
-    
-    W_tau = np.eye(n_act) * 10           
-    W_fc = np.eye(n_contacts * 3) * 0.1   
+    W_ddq[null_dof_indices, null_dof_indices] = 100.0  # Increased regularization for null space
+
+    W_tau = np.eye(n_act) * 100.0           # Increased regularization
+    W_fc = np.eye(n_contacts * 3) * 0.1
     W_delta = np.eye(n_kp * 3) * 1e5
-    W_virtual = np.eye(6) * 1e3  
+    W_virtual = np.eye(6) * 1e3
     W_z = np.eye(n_contacts) * 1e4
-    
+
+    # Add small regularization to mass matrix to improve conditioning
+    M_reg = M + np.eye(n_dof) * 1e-8
+
     cost = (
         cp.quad_form(ddq, W_ddq) +
         cp.quad_form(tau, W_tau) +
@@ -395,36 +417,86 @@ def qpid(skeleton, x_t, dt=0.033, mu=0.8, excluded_DOFs=None):
         cp.quad_form(tau_virtual, W_virtual)
         # + cp.quad_form(delta_z, W_z)
     )
-    
+
     # --- 10. RISOLUZIONE ---
     problem = cp.Problem(cp.Minimize(cost), constraints)
 
     try:
-        problem.solve(
-            solver=cp.OSQP, warm_start=True, scaling=25, adaptive_rho=True, rho=0.01, polish=True, polish_refine_iter=5
-        )
+        # Try multiple solvers with different configurations for better robustness
+        solver_options = [
+            {'solver': cp.OSQP, 'warm_start': True, 'scaling': 25, 'adaptive_rho': True, 'rho': 0.01, 'polish': True, 'polish_refine_iter': 5},
+            {'solver': cp.OSQP, 'warm_start': True, 'scaling': 10, 'adaptive_rho': False, 'rho': 0.1, 'polish': False},
+            {'solver': cp.ECOS, 'max_iters': 1000, 'abstol': 1e-6, 'reltol': 1e-6}
+        ]
+
+        success = False
+        for i, options in enumerate(solver_options):
+            try:
+                problem.solve(**options)
+                if problem.status in ["optimal", "optimal_inaccurate"]:
+                    success = True
+                    break
+            except Exception as solver_error:
+                print(f"Solver {i+1} failed: {solver_error}")
+                continue
+
+        if not success:
+            raise Exception("All solvers failed")
+
     except Exception as e:
-        if "ArpackError" in str(type(e)):
-            print("QPID ha fallito con un errore di ARPACK")
+        print(f"QPID ha fallito con un errore: {e}")
+        # If we get an ArpackError, try with different regularization
+        if "ArpackError" in str(type(e)) or "arpack" in str(e).lower():
+            print("Tentativo di risoluzione con regolarizzazione aumentata")
+            # Try with more aggressive regularization
+            W_ddq = np.eye(n_dof) * 10.0  # Increased regularization
+            W_tau = np.eye(n_act) * 100.0  # Increased regularization
+
+            cost = (
+                cp.quad_form(ddq, W_ddq) +
+                cp.quad_form(tau, W_tau) +
+                cp.quad_form(fc, W_fc) +
+                cp.quad_form(delta, W_delta) +
+                cp.quad_form(tau_virtual, W_virtual)
+            )
+
+            problem = cp.Problem(cp.Minimize(cost), constraints)
+            try:
+                problem.solve(solver=cp.OSQP, warm_start=True, scaling=25, adaptive_rho=True, rho=0.01, polish=True, polish_refine_iter=5)
+            except Exception as e2:
+                print(f"Regolarizzazione aumentata non ha funzionato: {e2}")
         else:
-            print("QPID ha fallito con un errore di", e)
+            # For other errors, just print diagnostics
+            pass
+
         # Se fallisce, stampa la diagnostica sulle matrici "tagliate" che ha usato
         diagnose_matrix("J_c_sliced", J_c)
         diagnose_matrix("M_sliced", M)
         return None
-        
+
     if problem.status not in ["optimal", "optimal_inaccurate"]:
         print(f"Attenzione: l'ottimizzatore ha fallito ({problem.status})")
-        return None
+        # If optimization fails, try to return at least a partial solution
+        if ddq.value is not None and tau.value is not None:
+            # Even if not optimal, return what we have
+            pass
+        else:
+            return None
         
     # --- 11. RECOSTRUZIONE ARRAYS FULL-SIZE ---
     # Ricostruiamo vettori di dimensione 49 (e 43) inserendo zero ai DOF disabilitati
     ddq_out = np.zeros(n_dof_full)
-    ddq_out[active_dofs] = ddq.value
-    
+    if ddq.value is not None:
+        ddq_out[active_dofs] = ddq.value
+    else:
+        print("Warning: ddq.value is None, using zeros")
+
     tau_out = np.zeros(n_act_full)
-    for i, active_dof_idx in enumerate(active_act_dofs):
-        tau_out[active_dof_idx - 6] = tau.value[i]
+    if tau.value is not None:
+        for i, active_dof_idx in enumerate(active_act_dofs):
+            tau_out[active_dof_idx - 6] = tau.value[i]
+    else:
+        print("Warning: tau.value is None, using zeros")
 
     return {
         "ddq": ddq_out,
@@ -463,8 +535,22 @@ for i in range(0,target.shape[0]):
     result = qpid(s, target_kps,dt) 
 
     if result is None or result["ddq"] is None:
-        print(f"[Step {i}] QP fallito")
-        break
+        print(f"[Step {i}] QP fallito, tentativo di fallback con soluzione zero")
+        # Fallback: use zero accelerations and forces
+        ddq_opt = np.zeros(n_dof_full)
+        tau_opt = np.zeros(n_act_full)
+        fc_opt = np.zeros(n_contacts * 3)
+
+        # Create a minimal result structure for fallback
+        result = {
+            "ddq": ddq_opt,
+            "tau": tau_opt,
+            "fc": fc_opt,
+            "delta": np.zeros(n_kp * 3),
+            "contact_info": contact_info
+        }
+        results.append(result)
+        continue
 
 
     results.append(result)

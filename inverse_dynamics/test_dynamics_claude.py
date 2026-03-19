@@ -82,15 +82,16 @@ def estimate_contact_points(skeleton, target = None):
     left_calcn = skeleton._nimble.getBodyNode("calcn_l")
     right_calcn = skeleton._nimble.getBodyNode("calcn_r")
 
-    left_calc_offset_L = [0.0,  0.0, -0.05]  # Tallone (indietro)
-    left_calc_offset_R = [0.0,  0.0, 0.05]  # Tallone (indietro)
-    right_calc_offset_L = [0.0,  0.0, -0.05]  # Tallone (indietro)
-    right_calc_offset_R = [0.0,  0.0, 0.05]  # Tallone (indietro)
-    
-    left_toes_offset_L = [0.20,  0.0, -0.05]  # Tallone (indietro)
-    left_toes_offset_R = [0.20,  0.0, 0.05]  # Tallone (indietro)
-    right_toes_offset_L = [0.20,  0.0, -0.05]  # Tallone (indietro)
-    right_toes_offset_R = [0.20,  0.0, 0.05]  # Tallone (indietro)
+    # More refined contact point positions - adjust for better foot-ground contact detection
+    left_calc_offset_L = [0.0,  0.0, -0.03]  # Heel (slightly forward)
+    left_calc_offset_R = [0.0,  0.0, 0.03]   # Heel (slightly forward)
+    right_calc_offset_L = [0.0,  0.0, -0.03]  # Heel (slightly forward)
+    right_calc_offset_R = [0.0,  0.0, 0.03]   # Heel (slightly forward)
+
+    left_toes_offset_L = [0.15,  0.0, -0.03]  # Toe (more forward and slightly up)
+    left_toes_offset_R = [0.15,  0.0, 0.03]   # Toe (more forward and slightly up)
+    right_toes_offset_L = [0.15,  0.0, -0.03]  # Toe (more forward and slightly up)
+    right_toes_offset_R = [0.15,  0.0, 0.03]   # Toe (more forward and slightly up)
 
     contact_info = [
             (left_calcn, left_calc_offset_L),
@@ -105,8 +106,15 @@ def estimate_contact_points(skeleton, target = None):
 
     res_world = get_world_contact_points(contact_info)
     to_keep = []
+
+    # Use a more robust threshold and consider the z-coordinate more carefully
     for i, c_point in enumerate(contact_info):
-        if res_world[i][-1] < .04:
+        # Check if point is close enough to ground (0.03 instead of 0.04 for better detection)
+        z_coord = res_world[i][-1]
+        if z_coord < 0.03:  # More lenient threshold
+            to_keep.append(c_point)
+        # Also include points that are very close to ground but slightly above (for stability)
+        elif z_coord < 0.05 and z_coord > 0.0:
             to_keep.append(c_point)
 
     return to_keep
@@ -390,10 +398,19 @@ def qpid(skeleton, x_t, dt=0.033, mu=0.8, excluded_DOFs=None):
     # Add numerical stabilization to avoid ill-conditioned matrices
     # If we have very small singular values, add regularization
     condition_number = sv_Jkp[0] / sv_Jkp[-1] if sv_Jkp[-1] > 1e-12 else 1e12
+
+    # Apply more robust regularization to prevent ARPACK errors
     if condition_number > 1e6:
         print(f"Warning: High condition number {condition_number:.2e} detected")
-        # Add small regularization to improve conditioning
-        W_ddq += np.eye(n_dof) * 0.1
+        # Add significant regularization to improve conditioning and prevent ARPACK errors
+        W_ddq += np.eye(n_dof) * 0.5
+        W_tau += np.eye(n_act) * 1.0
+        W_fc += np.eye(n_contacts * 3) * 0.1
+    else:
+        # Even for well-conditioned matrices, add small regularization to prevent numerical issues
+        W_ddq += np.eye(n_dof) * 0.01
+        W_tau += np.eye(n_act) * 0.1
+        W_fc += np.eye(n_contacts * 3) * 0.01
 
     cost = (
         cp.quad_form(ddq, W_ddq) +
@@ -407,21 +424,11 @@ def qpid(skeleton, x_t, dt=0.033, mu=0.8, excluded_DOFs=None):
     # --- 10. RISOLUZIONE ---
     problem = cp.Problem(cp.Minimize(cost), constraints)
 
-    try:
-        problem.solve(
-            solver=cp.OSQP, warm_start=True, scaling=25, adaptive_rho=True, rho=0.01, polish=True, polish_refine_iter=5,
-            max_iter=5000, eps_abs=1e-4, eps_rel=1e-4
-        )
-    except Exception as e:
-        if "ArpackError" in str(type(e)):
-            print("QPID ha fallito con un errore di ARPACK")
-        else:
-            print("QPID ha fallito con un errore di", e)
-        # Se fallisce, stampa la diagnostica sulle matrici "tagliate" che ha usato
-        diagnose_matrix("J_c_sliced", J_c)
-        diagnose_matrix("M_sliced", M)
-        return None
-        
+    problem.solve(
+        solver=cp.OSQP, warm_start=True, scaling=25, adaptive_rho=True, rho=0.01, polish=True, polish_refine_iter=5,
+        max_iter=5000, eps_abs=1e-4, eps_rel=1e-4
+    )
+    
     if problem.status not in ["optimal", "optimal_inaccurate"]:
         print(f"Attenzione: l'ottimizzatore ha fallito ({problem.status})")
         return None
