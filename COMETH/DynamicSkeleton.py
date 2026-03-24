@@ -11,7 +11,17 @@ import cvxpy as cp
 current_path = os.path.dirname(os.path.abspath(__file__)) + "/"
 
 class Kalman():
+    """
+    1D Kalman filter to track position, velocity, and acceleration of a single scalar variable over time.
+    """
     def __init__(self,dt,s,q=0.5):
+        """
+        Initialize the Kalman filter matrices.
+        
+        :param dt: Time delta
+        :param s: Initial state value
+        :param q: Process noise covariance weight
+        """
         self.X = np.array([[s],[0.1],[0.01]])
         self.P = np.diag((1, 1, 1))
         self.F = np.array([[1, dt, dt*dt/2], [0, 1, dt], [0, 0, 1]])
@@ -21,12 +31,27 @@ class Kalman():
         self.R = 1 # np.eye(self.Y.shape[0])*
         
     def predict(self,dt = None):
+        """
+        Predict step in the Kalman filter.
+        Updates state and covariance estimates using the state transition model.
+        
+        :param dt: Optional time step to dynamically update the transition matrix (F)
+        """
         if dt is not None:
             self.F = np.array([[1, dt, dt*dt/2], [0, 1, dt], [0, 0, 1]])
         self.X = np.dot(self.F,self.X) #+ np.dot(self.B,self.U)
         self.P = np.dot(self.F, np.dot(self.P,self.F.T)) + self.Q
 
     def update(self,Y,R=None,minval=-np.inf,maxval=np.inf):
+        """
+        Update step in the Kalman filter incorporating a new measurement.
+        
+        :param Y: The new measurement value
+        :param R: Measurement noise covariance (optional, updates self.R)
+        :param minval: Minimum allowed value for the position state
+        :param maxval: Maximum allowed value for the position state
+        :return: The updated output position estimate
+        """
         self.Y = Y
         if R is not None:
             self.R = R
@@ -38,6 +63,11 @@ class Kalman():
         return self.get_output()
 
     def get_output(self):
+        """
+        Retrieve the current output position estimate.
+        
+        :return: The estimated scalar position
+        """
         return float(np.dot(self.H,self.X))
 
 # template to use from file reading for insane speedup
@@ -137,6 +167,9 @@ class DynamicSkeleton(ConstrainedSkeleton):
         self.reset()
         
     def reset_history(self):
+        """
+        Clear historical tracking data for all bones, keypoints, heights, and measurements.
+        """
         for b in self.bones_list:
             b.history = []
         for kp in self.keypoints_list:
@@ -145,12 +178,21 @@ class DynamicSkeleton(ConstrainedSkeleton):
         self.measurements = []
     
     def reset(self):
+        """
+        Reset the skeleton to its default neutral position and scale. 
+        Also clears accumulated measurement history and Kalman filters.
+        """
         self._nimble.setPositions(self.neutral_position)
         self._nimble.setBodyScales(self.neutral_scale)
         self.reset_history()
         self.kf = None
     
     def estimate_confidence(self):
+        """
+        Estimate the confidence of current skeleton's pose based on bone length heuristics.
+        Keypoint confidences are boosted if bone lengths fall within typical bounds scaled by height, 
+        and penalized if they indicate anomalous skeletal geometry.
+        """
         # Update each keypoint.confidence value
         h = np.nanmean(self.height_history)
         for b in self.bones_list:
@@ -358,7 +400,6 @@ class DynamicSkeleton(ConstrainedSkeleton):
         if np.all(self._nimble.getPositions() == self.neutral_position):
             dt = 100
         
-        # Every time set a new problem. It's slower but can be improved
         if problem_to_build:
             self.q = cp.Parameter((49,))
             self.xs = [cp.Parameter((nk*3,)) for nk in nkey]
